@@ -153,6 +153,7 @@ setup_environment() {
     log "SUCCESS" "Environment setup completed"
 }
 
+
 # Setup config.php from sample
 setup_config() {
     log "INFO" "Creating config.php from config-sample.php with production credentials..."
@@ -170,7 +171,7 @@ setup_config() {
     local http_port="${HTTP_PORT:-80}"
     
     # If using non-standard HTTP port, include it in BASE_URL
-    if [ "$http_port" != "80" ]; then
+    if [ "$http_port" != "80" ] && [ "$http_port" != "443" ]; then
         app_url="${app_url}:${http_port}"
     fi
     
@@ -182,7 +183,18 @@ setup_config() {
     sed -i "s|const DB_USERNAME = 'user';|const DB_USERNAME = '${DB_USERNAME:-easyapp_user}';|g" config.php
     sed -i "s|const DB_PASSWORD = 'password';|const DB_PASSWORD = '${DB_PASSWORD}';|g" config.php
     
+    # Set production language if specified
+    if [ -n "${APP_LANGUAGE:-}" ]; then
+        sed -i "s|const LANGUAGE = 'english';|const LANGUAGE = '${APP_LANGUAGE}';|g" config.php
+    fi
+    
     log "SUCCESS" "config.php created from template with production credentials"
+    log "INFO" "Configuration details:"
+    log "INFO" "  - BASE_URL: ${app_url}"
+    log "INFO" "  - DB_HOST: ${DB_HOST:-mysql}"
+    log "INFO" "  - DB_NAME: ${DB_DATABASE:-easyappointments}"
+    log "INFO" "  - DB_USERNAME: ${DB_USERNAME:-easyapp_user}"
+    log "INFO" "  - DEBUG_MODE: false"
 }
 
 # Start production environment
@@ -230,16 +242,19 @@ start_production() {
         chmod g+w /var/www/html/storage/sessions /var/www/html/storage/cache /var/www/html/storage/uploads 2>/dev/null || true
     ' || log "WARN" "Could not set permissions via Docker"
     
-    # Health check
-    log "INFO" "Performing health check..."
-    local app_url="${APP_URL:-http://localhost}"
-    local http_port="${HTTP_PORT:-80}"
+    # Basic validation
+    log "INFO" "Validating deployment..."
     
-    if curl -s -o /dev/null -w "%{http_code}" "http://localhost:$http_port/index.php/installation" | grep -q "200"; then
-        log "SUCCESS" "Application is responding"
+    # Check if config.php was created successfully
+    if [ -f "config.php" ]; then
+        log "SUCCESS" "config.php created successfully"
     else
-        log "WARN" "Application may still be starting up"
+        log "ERROR" "config.php not found"
     fi
+    
+    # Give containers time to initialize
+    log "INFO" "Waiting for services to initialize..."
+    sleep 10
     
     # Display status
     echo -e "\n${GREEN}🎉 Production environment started successfully!${NC}\n"
@@ -247,6 +262,7 @@ start_production() {
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
     
     echo -e "\n${BLUE}🌐 Access URLs:${NC}"
+    local http_port="${HTTP_PORT:-80}"
     echo -e "  Installation: http://localhost:$http_port/index.php/installation"
     echo -e "  Application:  http://localhost:$http_port"
     

@@ -1,11 +1,11 @@
 services:
   php-fpm:
     build: 
-      context: docker/php-fpm
+      context: .
+      dockerfile: docker/php-fpm/Dockerfile
       target: production
     working_dir: /var/www/html
     volumes:
-      - '.:/var/www/html:ro'
       - './storage:/var/www/html/storage'
       - './docker/php-fpm/php-ini-production.ini:/usr/local/etc/php/conf.d/99-overrides.ini'
     environment:
@@ -65,11 +65,11 @@ services:
 
   whatsapp-worker:
     build: 
-      context: docker/php-fpm
+      context: .
+      dockerfile: docker/php-fpm/Dockerfile
       target: production
     working_dir: /var/www/html
     volumes:
-      - '.:/var/www/html:ro'
       - './storage:/var/www/html/storage'
     environment:
       - APP_ENV=production

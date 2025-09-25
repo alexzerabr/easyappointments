@@ -36,6 +36,17 @@ CMD ["bash", "docker/php-fpm/start-container"]
 # Production stage
 FROM base AS production
 
+# Copy application files first (from project root)
+COPY --chown=www-data:www-data composer.json composer.lock* /var/www/html/
+
+# Install Composer dependencies for production
+RUN cd /var/www/html \
+    && composer install --optimize-autoloader --no-dev --no-interaction \
+    && composer clear-cache
+
+# Copy the rest of the application
+COPY --chown=www-data:www-data . /var/www/html/
+
 # Remove development tools and optimize for production
 RUN apt-get update \
     && apt-get remove -y git \
