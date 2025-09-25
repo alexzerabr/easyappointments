@@ -7,6 +7,12 @@ services:
     volumes:
       - '.:/var/www/html'
       - './docker/php-fpm/php-ini-overrides.ini:/usr/local/etc/php/conf.d/99-overrides.ini'
+    environment:
+      - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
 
   nginx:
     image: 'nginx:1.23.3-alpine'
@@ -16,6 +22,9 @@ services:
       - './docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf'
     ports:
       - '80:80'
+    depends_on:
+      - php-fpm
+    restart: unless-stopped
 
   mysql:
     image: 'mysql:8.0'
@@ -28,6 +37,12 @@ services:
       - MYSQL_PASSWORD=password
     ports:
       - '3306:3306'
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-psecret"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
 
   phpmyadmin:
     image: 'phpmyadmin:5.2.1'
@@ -93,4 +108,27 @@ services:
       - PHPLDAPADMIN_HTTPS=false
     depends_on:
       - openldap
+
+  whatsapp-worker:
+    build: docker/php-fpm
+    working_dir: /var/www/html
+    volumes:
+      - '.:/var/www/html'
+    environment:
+      - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: ["php", "scripts/whatsapp_worker.php"]
+
+  logrotate:
+    image: alpine:3.18
+    working_dir: /var/www/html
+    volumes:
+      - '.:/var/www/html'
+    restart: always
+    depends_on:
+      - whatsapp-worker
+    command: ["/bin/sh", "-lc", "apk add --no-cache logrotate >/dev/null 2>&1 || true; while true; do logrotate -s /var/tmp/logrotate.status /var/www/html/docker/logrotate/whatsapp_worker.conf 2>&1 | sed -e 's/^/[logrotate] /'; sleep 86400; done"]
 

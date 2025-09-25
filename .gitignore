@@ -31,3 +31,11 @@
 /vendor/
 /metafile
 .DS_Store
+.env
+.env.*
+!.env-example
+# Production environment files
+.env.production
+# Backup files (may contain credentials)
+*.backup
+config.php.backup

@@ -21,6 +21,31 @@
                     <div class="card h-100">
                         <div class="card-header">
                             <h5 class="fw-light text-black-50 mb-0">
+                                <i class="fas fa-comments text-primary me-2"></i>
+                                <?= lang('Whatsapp') ?>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3 integration-info">
+                                <small>
+                                    <?= lang('Permite a integração com o WhatsApp para envio de mensagens automáticas aos clientes. Use esta funcionalidade para enviar lembretes, confirmações de agendamento e outras notificações diretamente pelo WhatsApp.') ?>
+                                </small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-0">
+                            <a href="<?= site_url('whatsapp_integration') ?>" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-cogs me-2"></i>
+                                <?= lang('configure') ?>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="fw-light text-black-50 mb-0">
+                                <i class="fas fa-bell text-primary me-2"></i>
                                 <?= lang('webhooks') ?>
                             </h5>
                         </div>
@@ -44,6 +69,7 @@
                     <div class="card h-100">
                         <div class="card-header">
                             <h5 class="fw-light text-black-50 mb-0">
+                                <i class="fas fa-chart-line text-primary me-2"></i>
                                 <?= lang('google_analytics') ?>
                             </h5>
                         </div>
@@ -68,6 +94,7 @@
                     <div class="card h-100">
                         <div class="card-header">
                             <h5 class="fw-light text-black-50 mb-0">
+                                <i class="fas fa-chart-pie text-primary me-2"></i>
                                 <?= lang('matomo_analytics') ?>
                             </h5>
                         </div>
@@ -92,6 +119,7 @@
                     <div class="card h-100">
                         <div class="card-header">
                             <h5 class="fw-light text-black-50 mb-0">
+                                <i class="fas fa-code text-primary me-2"></i>
                                 <?= lang('api') ?>
                             </h5>
                         </div>
@@ -115,6 +143,7 @@
                     <div class="card h-100">
                         <div class="card-header">
                             <h5 class="fw-light text-black-50 mb-0">
+                                <i class="fas fa-university text-primary me-2"></i>
                                 <?= lang('ldap') ?>
                             </h5>
                         </div>

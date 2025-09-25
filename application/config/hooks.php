@@ -11,5 +11,18 @@
 |
 */
 
+/*
+| -------------------------------------------------------------------------
+| WhatsApp Integration Hooks
+| -------------------------------------------------------------------------
+| Register WhatsApp hooks for appointment notifications
+*/
+$hook['post_controller_constructor'] = [
+    'class' => 'Whatsapp_hooks',
+    'function' => 'register',
+    'filename' => 'whatsapp_hooks.php',
+    'filepath' => 'hooks',
+];
+
 /* End of file hooks.php */
 /* Location: ./application/config/hooks.php */

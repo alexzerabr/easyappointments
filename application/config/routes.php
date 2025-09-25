@@ -157,6 +157,50 @@ $route['api/v1/availabilities']['get'] = 'api/v1/availabilities_api_v1/get';
 
 /*
 | -------------------------------------------------------------------------
+| WHATSAPP INTEGRATION ROUTING
+| -------------------------------------------------------------------------
+| Routes for WhatsApp integration functionality
+|
+*/
+
+// WhatsApp Integration Settings
+$route['whatsapp_integration'] = 'whatsapp_integration/index';
+$route['whatsapp_integration/save']['post'] = 'whatsapp_integration/save';
+$route['whatsapp_integration/update_token']['post'] = 'whatsapp_integration/update_token';
+$route['whatsapp_integration/generate_token']['post'] = 'whatsapp_integration/generate_token';
+$route['whatsapp_integration/start_session']['post'] = 'whatsapp_integration/start_session';
+$route['whatsapp_integration/get_status'] = 'whatsapp_integration/get_status';
+$route['whatsapp_integration/close_session'] = 'whatsapp_integration/close_session';
+$route['whatsapp_integration/logout_session'] = 'whatsapp_integration/logout_session';
+$route['whatsapp_integration/test_connectivity'] = 'whatsapp_integration/test_connectivity';
+$route['whatsapp_integration/get_message_logs']['get'] = 'whatsapp_integration/get_message_logs';
+$route['whatsapp_integration/send_message']['post'] = 'whatsapp_integration/send_message';
+$route['whatsapp_integration/can_send_message']['get'] = 'whatsapp_integration/can_send_message';
+$route['whatsapp_integration/get_statistics']['get'] = 'whatsapp_integration/get_statistics';
+$route['whatsapp_integration/send_test_message']['post'] = 'whatsapp_integration/send_test_message';
+$route['whatsapp_integration/get_message_logs']['get'] = 'whatsapp_integration/get_message_logs';
+$route['whatsapp_integration/get_message_stats']['get'] = 'whatsapp_integration/get_message_stats';
+
+// WhatsApp Templates Management
+$route['whatsapp_templates'] = 'whatsapp_templates/index';
+$route['whatsapp_templates/get_templates']['get'] = 'whatsapp_templates/get_templates';
+$route['whatsapp_templates/get_template/(:num)']['get'] = 'whatsapp_templates/get_template/$1';
+$route['whatsapp_templates/save_template']['post'] = 'whatsapp_templates/save_template';
+$route['whatsapp_templates/delete_template/(:num)']['delete'] = 'whatsapp_templates/delete_template/$1';
+$route['whatsapp_templates/get_preview']['post'] = 'whatsapp_templates/get_preview';
+$route['whatsapp_templates/get_statuses']['get'] = 'whatsapp_templates/get_statuses';
+$route['whatsapp_templates/get_variables']['get'] = 'whatsapp_templates/get_variables';
+$route['whatsapp_templates/get_placeholders']['get'] = 'whatsapp_templates/get_placeholders'; // Legacy compatibility
+$route['whatsapp_templates/validate_variables']['post'] = 'whatsapp_templates/validate_variables';
+// $route['whatsapp_templates/create_default_templates']['post'] = 'whatsapp_templates/create_default_templates'; // removed: no auto defaults
+$route['whatsapp_templates/toggle_template/(:num)']['put'] = 'whatsapp_templates/toggle_template/$1';
+$route['whatsapp_templates/duplicate_template/(:num)']['post'] = 'whatsapp_templates/duplicate_template/$1';
+$route['whatsapp_templates/bulk_update']['post'] = 'whatsapp_templates/bulk_update';
+$route['whatsapp_templates/export_templates']['get'] = 'whatsapp_templates/export_templates';
+$route['whatsapp_templates/import_templates']['post'] = 'whatsapp_templates/import_templates';
+
+/*
+| -------------------------------------------------------------------------
 | CUSTOM ROUTING
 | -------------------------------------------------------------------------
 | You can add custom routes to the following section to define URL patterns

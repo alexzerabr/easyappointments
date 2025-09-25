@@ -271,6 +271,33 @@ class Settings_model extends EA_Model
     }
 
     /**
+     * Convenience helper to get a single setting value by name.
+     *
+     * @param string $name Name of the setting
+     * @param mixed|null $default Default value to return when not found
+     * @return mixed Returns the setting value or default
+     */
+    public function get_setting(string $name, $default = null)
+    {
+        if (empty($name)) {
+            return $default;
+        }
+
+        $row = $this->db->select('value')
+                        ->from('settings')
+                        ->where('name', $name)
+                        ->limit(1)
+                        ->get()
+                        ->row_array();
+
+        if (!$row || !array_key_exists('value', $row)) {
+            return $default;
+        }
+
+        return $row['value'];
+    }
+
+    /**
      * Load related resources to a setting.
      *
      * @param array $setting Associative array with the setting data.

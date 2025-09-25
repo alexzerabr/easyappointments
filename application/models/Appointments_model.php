@@ -47,6 +47,7 @@ class Appointments_model extends EA_Model
         'customerId' => 'id_users_customer',
         'googleCalendarId' => 'id_google_calendar',
         'caldavCalendarId' => 'id_caldav_calendar',
+        'templateId' => 'template_id',
     ];
 
     /**
@@ -219,7 +220,21 @@ class Appointments_model extends EA_Model
             throw new RuntimeException('Could not insert appointment.');
         }
 
-        return $this->db->insert_id();
+        $appointment_id = $this->db->insert_id();
+        $appointment['id'] = $appointment_id;
+
+        // Disparar evento de domínio pós-commit
+        $this->load->library('domain_events');
+        $this->load->library('events/appointment_saved');
+        
+        // Usar transação para garantir que o evento seja disparado após o commit
+        $this->db->trans_complete();
+        if ($this->db->trans_status() === TRUE) {
+            $event = new Appointment_saved($appointment_id, 'create', null, $appointment);
+            Domain_events::dispatch($event);
+        }
+
+        return $appointment_id;
     }
 
     /**
@@ -233,10 +248,32 @@ class Appointments_model extends EA_Model
      */
     protected function update(array $appointment): int
     {
+        // Get old appointment data for comparison
+        $old_appointment = $this->find($appointment['id']);
+        
         $appointment['update_datetime'] = date('Y-m-d H:i:s');
 
         if (!$this->db->update('appointments', $appointment, ['id' => $appointment['id']])) {
             throw new RuntimeException('Could not update appointment record.');
+        }
+
+        // Determinar tipo de ação baseado na mudança de status
+        $action_type = 'update';
+        if ($old_appointment && isset($old_appointment['status']) && isset($appointment['status'])) {
+            if ($old_appointment['status'] !== $appointment['status']) {
+                $action_type = 'statusChanged';
+            }
+        }
+
+        // Disparar evento de domínio pós-commit
+        $this->load->library('domain_events');
+        $this->load->library('events/appointment_saved');
+        
+        // Usar transação para garantir que o evento seja disparado após o commit
+        $this->db->trans_complete();
+        if ($this->db->trans_status() === TRUE) {
+            $event = new Appointment_saved($appointment['id'], $action_type, $old_appointment, $appointment);
+            Domain_events::dispatch($event);
         }
 
         return $appointment['id'];
@@ -575,6 +612,7 @@ class Appointments_model extends EA_Model
                 $appointment['id_google_calendar'] !== null ? $appointment['id_google_calendar'] : null,
             'caldavCalendarId' =>
                 $appointment['id_caldav_calendar'] !== null ? $appointment['id_caldav_calendar'] : null,
+            'templateId' => $appointment['template_id'] !== null ? (int) $appointment['template_id'] : null,
         ];
 
         $appointment = $encoded_resource;
@@ -640,6 +678,10 @@ class Appointments_model extends EA_Model
 
         if (array_key_exists('caldavCalendarId', $appointment)) {
             $decoded_request['id_caldav_calendar'] = $appointment['caldavCalendarId'];
+        }
+
+        if (array_key_exists('templateId', $appointment)) {
+            $decoded_request['template_id'] = $appointment['templateId'];
         }
 
         $decoded_request['is_unavailability'] = false;
