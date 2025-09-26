@@ -1,111 +1,243 @@
-<h1 align="center">
-    <br>
-    <a href="https://easyappointments.org">
-        <img src="https://raw.githubusercontent.com/alextselegidis/easyappointments/develop/logo.png" alt="Easy!Appointments" width="150">
-    </a>
-    <br>
-    Easy!Appointments
-    <br>
-</h1>
+# 🚀 EasyAppointments + WPPConnect Integration
 
-<br>
+> **Sistema completo de agendamentos com integração WhatsApp via WPPConnect**
 
-<h4 align="center">
-    A powerful Open Source Appointment Scheduler that can be installed on your server. 
-</h4>
+[![Docker Build](https://github.com/alexzerabr/easyappointments/actions/workflows/build-and-push.yml/badge.svg)](https://github.com/alexzerabr/easyappointments/actions/workflows/build-and-push.yml)
+[![Docker Pulls](https://img.shields.io/badge/docker-ghcr.io-blue)](https://ghcr.io/alexzerabr/easyappointments)
+[![License](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-<p align="center">
-  <img alt="GitHub" src="https://img.shields.io/github/license/alextselegidis/easyappointments?style=for-the-badge">
-  <img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/alextselegidis/easyappointments?style=for-the-badge">
-  <img alt="GitHub All Releases" src="https://img.shields.io/github/downloads/alextselegidis/easyappointments/total?style=for-the-badge">
-  <a href="https://discord.com/invite/UeeSkaw">
-    <img alt="Chat On Discord" src="https://img.shields.io/badge/chat-on%20discord-7289da?style=for-the-badge&logo=discord&logoColor=white">
-  </a>
-</p>
+## 📋 **Índice**
 
-<p align="center">
-  <a href="#about">About</a> •
-  <a href="#features">Features</a> •
-  <a href="#setup">Setup</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#license">License</a>
-</p>
-
-![screenshot](screenshot.png)
-
-## About
-
-**Easy!Appointments** is a highly customizable web application that allows customers to book appointments with you 
-via a sophisticated web interface. Moreover, it provides the ability to sync your data with Google Calendar so you can 
-use them with other services. It is an open source project that you can download and install **even for commercial use**. 
-Easy!Appointments will run smoothly with your existing website as it can be installed in a single folder of the 
-server and of course share an existing database.
-
-## Features
-
-The application is designed to be flexible enough so that it can handle any enterprise work flow. 
-
-* Customers and appointments management.
-* Services and providers organization.
-* Working plan and booking rules.
-* Google Calendar synchronization.
-* Email notifications system.
-* Self hosted installation.
-* Translated user interface.
-* User community support. 
-
-## Setup
-
-To clone and run this application, you'll need [Git](https://git-scm.com), [Node.js](https://nodejs.org/en/download/) (which comes with [npm](http://npmjs.com)) and [Composer](https://getcomposer.org) installed on your computer. From your command line:
-
-```bash
-# Clone this repository
-$ git clone https://github.com/alextselegidis/easyappointments.git
-
-# Go into the repository
-$ cd easyappointments
-
-# Install dependencies
-$ npm install && composer install
-
-# Start the file watcher
-$ npm start
-```
-
-Note: If you're using Linux Bash for Windows, [see this guide](https://www.howtogeek.com/261575/how-to-run-graphical-linux-desktop-applications-from-windows-10s-bash-shell/) or use `node` from the command prompt.
-
-You can build the files by running `npm run build`. This command will bundle everything to a `build` directory.
-
-## Installation
-
-You will need to perform the following steps to install the application on your server:
-
-* Make sure that your server has Apache/Nginx, PHP (8.2+) and MySQL installed.
-* Create a new database (or use an existing one).
-* Copy the "easyappointments" source folder on your server.
-* Make sure that the "storage" directory is writable.
-* Rename the "config-sample.php" file to "config.php" and update its contents based on your environment.
-* Open the browser on the Easy!Appointments URL and follow the installation guide.
-
-That's it! You can now use Easy!Appointments at your will.
-
-You will find the latest release at [easyappointments.org](https://easyappointments.org).
-If you have problems installing or configuring the application visit the
-[official support group](https://groups.google.com/forum/#!forum/easy-appointments).
-You can also report problems on the [issues page](https://github.com/alextselegidis/easyappointments/issues)
-and help the development progress.
-
-## License 
-
-Code Licensed Under [GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html) | Content Under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+- [Sobre o Projeto](#sobre-o-projeto)
+- [Início Rápido](#início-rápido)
+- [Fluxo de Desenvolvimento](#fluxo-de-desenvolvimento)
+- [Processo de Atualização](#processo-de-atualização)
+- [Deploy em Produção](#deploy-em-produção)
+- [Contribuindo](#contribuindo)
 
 ---
 
-Website [alextselegidis.com](https://alextselegidis.com) &nbsp;&middot;&nbsp;
-GitHub [alextselegidis](https://github.com/alextselegidis) &nbsp;&middot;&nbsp;
-Twitter [@alextselegidis](https://twitter.com/AlexTselegidis)
+## 🎯 **Sobre o Projeto**
 
-###### More Projects On Github
-###### ⇾ [Plainpad &middot; Self Hosted Note Taking App](https://github.com/alextselegidis/plainpad)
-###### ⇾ [Questionful &middot; Web Questionnaires Made Easy](https://github.com/alextselegidis/questionful)
-###### ⇾ [Integravy &middot; Service Orchestration At Your Fingertips](https://github.com/alextselegidis/integravy)
+Este é um **fork avançado** do EasyAppointments com integração completa do **WPPConnect** para envio de mensagens WhatsApp. O projeto inclui:
+
+- ✅ **Sistema de agendamentos** completo e responsivo
+- 📱 **Integração WhatsApp** via WPPConnect
+- 🐳 **Containerização completa** com Docker
+- 🚀 **Deploy automatizado** com um comando
+- 🔐 **Segurança avançada** com credenciais auto-geradas
+- 🌍 **Multi-arquitetura** (AMD64 + ARM64)
+
+---
+
+## ⚡ **Início Rápido**
+
+### **Pré-requisitos**
+- 🐳 **Docker** (20.10+)
+- 🔧 **Docker Compose** (v2.0+)
+- 🌐 **Git**
+
+### **Deploy em 30 segundos**
+```bash
+# 1. Clone o repositório
+git clone https://github.com/alexzerabr/easyappointments.git
+cd easyappointments
+
+# 2. Execute o deploy (gera tudo automaticamente!)
+./deploy/deploy-production.sh --start
+
+# 3. Acesse a aplicação
+open http://localhost/index.php/installation
+```
+
+**🎉 Pronto!** O sistema estará rodando com:
+- ✅ Credenciais geradas automaticamente
+- ✅ Banco de dados configurado
+- ✅ WhatsApp integration pronta
+- ✅ Todos os containers funcionando
+
+---
+
+## 🔄 **Fluxo de Desenvolvimento**
+
+### **1. Setup do Ambiente**
+
+```bash
+# Clone e entre no diretório
+git clone https://github.com/alexzerabr/easyappointments.git
+cd easyappointments
+
+# Inicie o ambiente de desenvolvimento
+docker compose up -d
+
+# Acesse a aplicação
+open http://localhost
+```
+
+### **2. Workflow de Desenvolvimento**
+
+```bash
+# 1. Criar branch para feature
+git checkout -b feature/nova-funcionalidade
+
+# 2. Desenvolver e testar localmente
+docker compose up -d
+# ... fazer alterações ...
+
+# 3. Commit e push
+git add .
+git commit -m "feat: adiciona nova funcionalidade WhatsApp"
+git push origin feature/nova-funcionalidade
+
+# 4. GitHub Actions irá automaticamente:
+# - ✅ Fazer build das imagens
+# - ✅ Executar testes de segurança
+# - ✅ Publicar no GHCR
+```
+
+---
+
+## 🔄 **Processo de Atualização (Como Atualizar Imagens)**
+
+### **Cenário 1: Alteração de Código (Automático)**
+
+```bash
+# 1. Faça suas alterações
+vim application/controllers/Appointments.php
+
+# 2. Commit e push
+git add .
+git commit -m "feat: melhoria na integração WhatsApp"
+git push origin whatsapp-integration
+
+# 3. 🤖 GitHub Actions executa automaticamente:
+#    ⏳ Build multi-arquitetura (~5-10 min)
+#    📦 Push para ghcr.io/alexzerabr/easyappointments:latest
+#    🛡️ Scan de vulnerabilidades
+#    ✅ Imagem disponível para deploy
+
+# 4. Deploy da nova versão
+./deploy/deploy-production.sh --start
+# ✅ Puxa automaticamente a imagem mais recente
+```
+
+### **Cenário 2: Release com Versão**
+
+```bash
+# 1. Criar tag de versão
+git tag v1.1.0
+git push origin v1.1.0
+
+# 2. 🤖 GitHub Actions cria automaticamente:
+#    📦 ghcr.io/alexzerabr/easyappointments:v1.1.0
+#    📦 ghcr.io/alexzerabr/easyappointments:latest (atualizada)
+```
+
+### **Cenário 3: Build Manual (Emergência)**
+
+```bash
+# Para casos de emergência
+export GH_OWNER="alexzerabr"
+export GHCR_TOKEN="ghp_xxxxxxxxxxxx"
+./scripts/manual-build-push.sh
+```
+
+---
+
+## 🎯 **Fluxo Completo de Trabalho**
+
+**🔄 Desenvolvimento → Produção em 6 Passos:**
+
+```bash
+# PASSO 1: Setup inicial (uma vez)
+git clone https://github.com/alexzerabr/easyappointments.git
+cd easyappointments
+
+# PASSO 2: Desenvolvimento local
+docker compose up -d
+# ... desenvolver features ...
+
+# PASSO 3: Commit e push
+git add .
+git commit -m "feat: integração WhatsApp melhorada"
+git push origin whatsapp-integration
+# ⏳ Aguardar GitHub Actions (5-10 min)
+
+# PASSO 4: Deploy em produção
+./deploy/deploy-production.sh --start
+# 🤖 Script automaticamente:
+# - Puxa imagem mais recente
+# - Gera credenciais seguras
+# - Configura ambiente
+# - Inicia todos os serviços
+
+# PASSO 5: Verificação
+curl -I http://localhost/index.php/installation
+# ✅ HTTP/1.1 200 OK
+```
+
+---
+
+## 🚀 **Deploy em Produção**
+
+### **Deploy Automatizado**
+
+```bash
+# Um comando faz tudo!
+./deploy/deploy-production.sh --start
+
+# O script automaticamente:
+# ✅ Gera credenciais seguras
+# ✅ Cria arquivo .env.production
+# ✅ Puxa imagem do GHCR
+# ✅ Configura config.php
+# ✅ Inicia containers
+```
+
+### **Comandos Úteis**
+
+```bash
+# Status dos containers
+docker compose -f docker-compose.prod.yml ps
+
+# Logs da aplicação
+docker compose -f docker-compose.prod.yml logs php-fpm
+
+# Parar ambiente
+./deploy/deploy-production.sh --stop
+
+# Backup dos dados
+./deploy/deploy-production.sh --backup
+```
+
+---
+
+## 🤝 **Contribuindo**
+
+1. **Fork** o projeto
+2. **Crie** uma branch: `git checkout -b feature/nova-feature`
+3. **Commit**: `git commit -m "feat: adiciona nova feature"`
+4. **Push**: `git push origin feature/nova-feature`
+5. **Abra** um Pull Request
+
+---
+
+## 📚 **Documentação**
+
+- 📖 **[GHCR Guide](README-GHCR.md)** - Guia do GitHub Container Registry
+- 🏗️ **[Build Commands](build-commands.md)** - Comandos de build
+- 🚀 **[Production README](PRODUCTION-README.md)** - Guia de produção
+
+---
+
+## 📄 **Licença**
+
+GPL-3.0 License - veja [LICENSE](LICENSE) para detalhes.
+
+---
+
+<div align="center">
+
+**🚀 Feito com ❤️ por [alexzerabr](https://github.com/alexzerabr)**
+
+</div>

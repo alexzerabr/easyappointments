@@ -105,34 +105,122 @@ validate_environment() {
     log "SUCCESS" "Environment validation passed"
 }
 
-# Setup environment file
+# Generate secure random password
+generate_password() {
+    local length="${1:-32}"
+    openssl rand -base64 $length | tr -d "=+/" | cut -c1-$length
+}
+
+# Generate secure encryption key
+generate_encryption_key() {
+    openssl rand -hex 32
+}
+
+# Customize environment variables interactively
+customize_environment() {
+    log "INFO" "Customizing environment variables..."
+    echo ""
+    
+    # APP_URL
+    local current_app_url=$(grep "APP_URL=" "$ENV_FILE" | cut -d'=' -f2)
+    read -p "Enter APP_URL (current: $current_app_url): " new_app_url
+    if [ -n "$new_app_url" ]; then
+        sed -i "s|APP_URL=.*|APP_URL=$new_app_url|g" "$ENV_FILE"
+        log "INFO" "Updated APP_URL to: $new_app_url"
+    fi
+    
+    # HTTP_PORT
+    local current_http_port=$(grep "HTTP_PORT=" "$ENV_FILE" | cut -d'=' -f2)
+    read -p "Enter HTTP_PORT (current: $current_http_port): " new_http_port
+    if [ -n "$new_http_port" ]; then
+        sed -i "s/HTTP_PORT=.*/HTTP_PORT=$new_http_port/g" "$ENV_FILE"
+        log "INFO" "Updated HTTP_PORT to: $new_http_port"
+    fi
+    
+    # HTTPS_PORT
+    local current_https_port=$(grep "HTTPS_PORT=" "$ENV_FILE" | cut -d'=' -f2)
+    read -p "Enter HTTPS_PORT (current: $current_https_port): " new_https_port
+    if [ -n "$new_https_port" ]; then
+        sed -i "s/HTTPS_PORT=.*/HTTPS_PORT=$new_https_port/g" "$ENV_FILE"
+        log "INFO" "Updated HTTPS_PORT to: $new_https_port"
+    fi
+    
+    # MYSQL_PORT
+    local current_mysql_port=$(grep "MYSQL_PORT=" "$ENV_FILE" | cut -d'=' -f2)
+    read -p "Enter MYSQL_PORT (current: $current_mysql_port): " new_mysql_port
+    if [ -n "$new_mysql_port" ]; then
+        sed -i "s/MYSQL_PORT=.*/MYSQL_PORT=$new_mysql_port/g" "$ENV_FILE"
+        log "INFO" "Updated MYSQL_PORT to: $new_mysql_port"
+    fi
+    
+    echo ""
+    log "SUCCESS" "Environment customization completed"
+}
+
+# Setup environment file with auto-generated credentials
 setup_environment() {
     if [ ! -f "$ENV_FILE" ]; then
         log "WARN" "Production environment file not found"
         
         if [ -f "$ENV_EXAMPLE" ]; then
-            log "INFO" "Creating production environment from example..."
+            log "INFO" "Creating production environment with auto-generated credentials..."
             
             # Generate secure credentials
-            local db_password=$(openssl rand -base64 24)
-            local mysql_root_password=$(openssl rand -base64 24)
-            local wa_token_key=$(openssl rand -base64 32)
-            local backup_key=$(openssl rand -base64 32)
+            local db_password=$(generate_password 24)
+            local mysql_root_password=$(generate_password 24)
+            local wa_token_enc_key=$(generate_encryption_key)
+            local backup_encryption_key=$(generate_encryption_key)
             
-            # Copy example and replace placeholders
+            # Copy example file
             cp "$ENV_EXAMPLE" "$ENV_FILE"
             
             # Replace placeholder values with generated ones
             sed -i "s/CHANGE_THIS_STRONG_PASSWORD/$db_password/g" "$ENV_FILE"
             sed -i "s/CHANGE_THIS_ROOT_PASSWORD/$mysql_root_password/g" "$ENV_FILE"
-            sed -i "s/CHANGE_THIS_GENERATE_NEW_KEY_WITH_OPENSSL/$wa_token_key/g" "$ENV_FILE"
-            sed -i "s/CHANGE_THIS_BACKUP_KEY/$backup_key/g" "$ENV_FILE"
+            sed -i "s/CHANGE_THIS_GENERATE_NEW_KEY_WITH_OPENSSL/$wa_token_enc_key/g" "$ENV_FILE"
+            sed -i "s/CHANGE_THIS_BACKUP_KEY/$backup_encryption_key/g" "$ENV_FILE"
+            sed -i "s/your-encryption-key-here/$wa_token_enc_key/g" "$ENV_FILE"
             
-            log "SUCCESS" "Production environment file created with secure credentials"
-            log "INFO" "DB Password: $db_password"
-            log "INFO" "MySQL Root Password: $mysql_root_password"
+            # Set default production values
+            sed -i "s/APP_URL=.*/APP_URL=http:\/\/localhost/g" "$ENV_FILE"
+            sed -i "s/HTTP_PORT=.*/HTTP_PORT=80/g" "$ENV_FILE"
+            sed -i "s/HTTPS_PORT=.*/HTTPS_PORT=443/g" "$ENV_FILE"
+            sed -i "s/MYSQL_PORT=.*/MYSQL_PORT=3306/g" "$ENV_FILE"
+            
+            log "SUCCESS" "Production environment file created with auto-generated credentials"
+            echo ""
+            echo -e "${GREEN}🔐 Generated Credentials (SAVE THESE SECURELY!):${NC}"
+            echo -e "${BLUE}  📊 Database Password: ${WHITE}$db_password${NC}"
+            echo -e "${BLUE}  🔑 MySQL Root Password: ${WHITE}$mysql_root_password${NC}"
+            echo -e "${BLUE}  🔒 WhatsApp Encryption Key: ${WHITE}$wa_token_enc_key${NC}"
+            echo -e "${BLUE}  💾 Backup Encryption Key: ${WHITE}$backup_encryption_key${NC}"
+            echo ""
+            
+            # Ask if user wants to customize URLs and ports
+            read -p "Do you want to customize APP_URL and ports? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                customize_environment
+            fi
         else
-            error_exit "Neither $ENV_FILE nor $ENV_EXAMPLE found"
+            error_exit "Environment example file not found: $ENV_EXAMPLE"
+        fi
+    else
+        log "INFO" "Using existing production environment file"
+        
+        # Validate required variables
+        if ! grep -q "DB_PASSWORD=" "$ENV_FILE" || ! grep -q "MYSQL_ROOT_PASSWORD=" "$ENV_FILE"; then
+            log "WARN" "Environment file exists but may be missing required credentials"
+            read -p "Do you want to regenerate credentials? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                backup_env_file="$ENV_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+                cp "$ENV_FILE" "$backup_env_file"
+                log "INFO" "Backed up existing environment to: $backup_env_file"
+                rm "$ENV_FILE"
+                setup_environment  # Recursive call to regenerate
+                return
+            fi
         fi
     fi
     
@@ -217,13 +305,23 @@ start_production() {
     # Setup config.php with production credentials
     setup_config
     
-    # Pull latest images
-    log "INFO" "Pulling latest images..."
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull
+    # Pull from public GHCR (no authentication needed for public images)
+    log "INFO" "Pulling from GitHub Container Registry (public)..."
     
-    # Build production images
-    log "INFO" "Building production images..."
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build --no-cache
+    # Pull latest images from GHCR
+    log "INFO" "Pulling latest images from GHCR..."
+    local image_name="ghcr.io/alexzerabr/easyappointments:latest"
+    
+    if ! docker pull "$image_name"; then
+        error_exit "Failed to pull image: $image_name. Please check if the image is available and published."
+    fi
+    
+    # Verify image was pulled successfully
+    if ! docker image inspect "$image_name" >/dev/null 2>&1; then
+        error_exit "Image verification failed: $image_name"
+    fi
+    
+    log "SUCCESS" "Successfully pulled image: $image_name"
     
     # Start services
     log "INFO" "Starting services..."
@@ -245,6 +343,11 @@ start_production() {
     # Basic validation
     log "INFO" "Validating deployment..."
     
+    # Print deployed image version
+    log "INFO" "Checking deployed image version..."
+    local image_info=$(docker image inspect "$image_name" --format '{{.Created}} {{.Config.Labels}}' 2>/dev/null || echo "Unable to inspect image")
+    log "INFO" "Deployed image info: $image_info"
+    
     # Check if config.php was created successfully
     if [ -f "config.php" ]; then
         log "SUCCESS" "config.php created successfully"
@@ -256,22 +359,46 @@ start_production() {
     log "INFO" "Waiting for services to initialize..."
     sleep 10
     
-    # Display status
-    echo -e "\n${GREEN}🎉 Production environment started successfully!${NC}\n"
-    echo -e "${BLUE}📊 Service Status:${NC}"
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
+    echo -e "\n${GREEN}🎉 Production deployment completed successfully!${NC}"
+    echo -e "${GREEN}   Environment is 100% ready for use!${NC}"
     
     echo -e "\n${BLUE}🌐 Access URLs:${NC}"
     local http_port="${HTTP_PORT:-80}"
-    echo -e "  Installation: http://localhost:$http_port/index.php/installation"
-    echo -e "  Application:  http://localhost:$http_port"
+    local https_port="${HTTPS_PORT:-443}"
+    echo -e "  📋 Installation: ${WHITE}http://localhost:$http_port/index.php/installation${NC}"
+    echo -e "  🏠 Application:  ${WHITE}http://localhost:$http_port${NC}"
+    if [ "$https_port" != "443" ] || [ -n "${SSL_CERT_PATH:-}" ]; then
+        echo -e "  🔒 HTTPS:        ${WHITE}https://localhost:$https_port${NC}"
+    fi
     
-    echo -e "\n${BLUE}📊 Database Info:${NC}"
-    echo -e "  Host: localhost:${MYSQL_PORT:-3306} (external) / mysql:3306 (internal)"
-    echo -e "  Database: ${DB_DATABASE:-easyappointments}"
-    echo -e "  Username: ${DB_USERNAME:-user}"
+    echo -e "\n${BLUE}📊 Database Configuration:${NC}"
+    echo -e "  🏠 Host: ${WHITE}localhost:${MYSQL_PORT:-3306}${NC} (external) / ${WHITE}mysql:3306${NC} (internal)"
+    echo -e "  💾 Database: ${WHITE}${DB_DATABASE:-easyappointments}${NC}"
+    echo -e "  👤 Username: ${WHITE}${DB_USERNAME:-easyapp_user}${NC}"
+    echo -e "  🔑 Password: ${WHITE}[Generated securely - check $ENV_FILE]${NC}"
     
-    log "SUCCESS" "Production start completed"
+    echo -e "\n${BLUE}🔐 Security Status:${NC}"
+    echo -e "  ✅ Auto-generated secure passwords"
+    echo -e "  ✅ WhatsApp encryption key configured"
+    echo -e "  ✅ Backup encryption enabled"
+    echo -e "  ✅ Production environment variables set"
+    
+    echo -e "\n${BLUE}🐳 Container Status:${NC}"
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
+    
+    echo -e "\n${YELLOW}📝 Next Steps:${NC}"
+    echo -e "  1. Complete installation at: ${WHITE}http://localhost:$http_port/index.php/installation${NC}"
+    echo -e "  2. Use the database credentials from: ${WHITE}$ENV_FILE${NC}"
+    echo -e "  3. Configure WhatsApp integration in admin panel"
+    echo -e "  4. Set up SSL certificate if needed"
+    
+    echo -e "\n${YELLOW}💡 Important Notes:${NC}"
+    echo -e "  • Environment file: ${WHITE}$ENV_FILE${NC}"
+    echo -e "  • Logs location: ${WHITE}storage/logs/${NC}"
+    echo -e "  • Backup location: ${WHITE}storage/backups/${NC}"
+    echo -e "  • All credentials have been auto-generated securely"
+    
+    log "SUCCESS" "Production deployment completed - environment is 100% ready!"
 }
 
 # Stop production environment

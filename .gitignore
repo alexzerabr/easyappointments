@@ -39,3 +39,7 @@
 # Backup files (may contain credentials)
 *.backup
 config.php.backup
+
+# README.md - Guia de desenvolvimento (não versionar para evitar conflitos)
+# Use como referência local para fluxo de trabalho
+README.md

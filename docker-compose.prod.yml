@@ -1,9 +1,10 @@
 services:
   php-fpm:
-    build: 
-      context: .
-      dockerfile: docker/php-fpm/Dockerfile
-      target: production
+    image: ghcr.io/alexzerabr/easyappointments:latest
+    # build: 
+    #   context: .
+    #   dockerfile: docker/php-fpm/Dockerfile
+    #   target: production
     working_dir: /var/www/html
     volumes:
       - './storage:/var/www/html/storage'
@@ -64,10 +65,11 @@ services:
       - app-network
 
   whatsapp-worker:
-    build: 
-      context: .
-      dockerfile: docker/php-fpm/Dockerfile
-      target: production
+    image: ghcr.io/alexzerabr/easyappointments:latest
+    # build: 
+    #   context: .
+    #   dockerfile: docker/php-fpm/Dockerfile
+    #   target: production
     working_dir: /var/www/html
     volumes:
       - './storage:/var/www/html/storage'
