@@ -7,9 +7,9 @@ set_time_limit(0);
 date_default_timezone_set(getenv('APP_TIMEZONE') ?: (getenv('TZ') ?: 'UTC'));
 
 $dbHost = getenv('WORKER_DB_HOST') ?: getenv('DB_HOST') ?: 'mysql';
-$dbUser = getenv('WORKER_DB_USER') ?: getenv('DB_USER') ?: 'user';
-$dbPass = getenv('WORKER_DB_PASS') ?: getenv('DB_PASS') ?: 'password';
-$dbName = getenv('WORKER_DB_NAME') ?: getenv('DB_NAME') ?: 'easyappointments';
+$dbUser = getenv('WORKER_DB_USER') ?: getenv('DB_USERNAME') ?: getenv('DB_USER') ?: 'user';
+$dbPass = getenv('WORKER_DB_PASS') ?: getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: 'password';
+$dbName = getenv('WORKER_DB_NAME') ?: getenv('DB_DATABASE') ?: getenv('DB_NAME') ?: 'easyappointments';
 
 $intervalWithRoutines = (int) (getenv('WORKER_INTERVAL') ?: 300); // 5min (300 seconds)
 $intervalNoRoutines = (int) (getenv('WORKER_NO_ROUTINES_INTERVAL') ?: 600); // 10min
