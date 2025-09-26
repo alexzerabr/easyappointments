@@ -43,3 +43,37 @@ config.php.backup
 # README.md - Guia de desenvolvimento (não versionar para evitar conflitos)
 # Use como referência local para fluxo de trabalho
 README.md
+
+# Arquivos de desenvolvimento desnecessários
+cookies.txt
+*.cookies
+curl_cookies.txt
+
+# Arquivos temporários de ferramentas e IDEs
+.vscode/
+.idea/
+*.sublime-*
+*~
+*.swp
+*.swo
+
+# OS específicos
+Thumbs.db
+desktop.ini
+
+# Dados de desenvolvimento/teste
+test-data/
+sample-data/
+dummy-data/
+
+# Certificados e chaves de desenvolvimento
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Arquivos de profiling/debug
+*.prof
+*.trace
+xdebug.out
