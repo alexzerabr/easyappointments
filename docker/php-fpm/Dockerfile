@@ -44,14 +44,13 @@ RUN cd /var/www/html \
     && composer install --optimize-autoloader --no-dev --no-interaction \
     && composer clear-cache
 
-# Copy package.json and build assets
-COPY --chown=www-data:www-data package.json package-lock.json* /var/www/html/
+# Copy assets source and build configuration
+COPY --chown=www-data:www-data package.json package-lock.json* gulpfile.js babel.config.json /var/www/html/
+COPY --chown=www-data:www-data assets/ /var/www/html/assets/
 RUN cd /var/www/html \
     && npm install \
-    && npm run vendor \
-    && npm run scripts \
-    && npm run styles \
-    && rm -rf node_modules package*.json
+    && npx gulp compile \
+    && rm -rf node_modules package*.json gulpfile.js babel.config.json
 
 # Install gosu for user switching in production
 RUN apt-get update \
