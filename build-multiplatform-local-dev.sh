@@ -1,6 +1,6 @@
 #!/bin/bash
-# 🚀 Build ARM64 Local (Desenvolvimento)
-# Execute na sua máquina AMD64 para gerar imagem ARM64
+# 🚀 Build Multi-Platform Local (Desenvolvimento)
+# Execute na sua máquina AMD64 para gerar imagens ARM64 e AMD64
 
 set -euo pipefail
 
@@ -8,19 +8,19 @@ set -euo pipefail
 REGISTRY="ghcr.io"
 NAMESPACE="alexzerabr"
 IMAGE_NAME="easyappointments"
-TAG="arm64-latest"
 DOCKERFILE="docker/php-fpm/Dockerfile"
 TARGET="production"
 
-echo "🚀 Build ARM64 Local (Desenvolvimento)"
-echo "===================================="
-echo "Platform: linux/arm64 (emulado via QEMU)"
+echo "🚀 Build Multi-Platform Local (Desenvolvimento)"
+echo "=============================================="
+echo "Platforms: linux/amd64,linux/arm64"
 echo "Registry: $REGISTRY"
-echo "Image: $REGISTRY/$NAMESPACE/$IMAGE_NAME:$TAG"
+echo "Images:"
+echo "  - $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest (amd64)"
+echo "  - $REGISTRY/$NAMESPACE/$IMAGE_NAME:arm64-latest (arm64)"
 echo "Tempo estimado: 45-60 minutos"
 echo ""
 
-# Verificar builder multi-platform
 echo "🔧 Verificando builder multi-platform..."
 if ! docker buildx ls | grep -q "linux/arm64"; then
     echo "⚠️  Criando builder multi-platform..."
@@ -28,13 +28,11 @@ if ! docker buildx ls | grep -q "linux/arm64"; then
     docker buildx inspect --bootstrap
 fi
 
-# Usar builder existente que suporta ARM64
 if docker buildx ls | grep -q "easyappointments-builder.*linux/arm64"; then
     echo "✅ Usando builder 'easyappointments-builder'"
     docker buildx use easyappointments-builder
 fi
 
-# Verificar se está logado no GHCR
 echo "🔐 Verificando login GHCR..."
 if ! grep -q "ghcr.io" ~/.docker/config.json 2>/dev/null; then
     echo "⚠️  Login GHCR não detectado"
@@ -48,30 +46,32 @@ else
     echo "✅ Login GHCR detectado"
 fi
 
-# Build da imagem ARM64
-echo "🏗️  Iniciando build ARM64 (emulado)..."
+echo "🏗️  Iniciando build multi-platform..."
 echo "⏱️  Este processo levará ~45-60 minutos..."
 echo ""
 
 time docker buildx build \
-    --platform linux/arm64 \
+    --platform linux/amd64,linux/arm64 \
     --file "$DOCKERFILE" \
     --target "$TARGET" \
-    --tag "$REGISTRY/$NAMESPACE/$IMAGE_NAME:$TAG" \
+    --tag "$REGISTRY/$NAMESPACE/$IMAGE_NAME:latest" \
+    --tag "$REGISTRY/$NAMESPACE/$IMAGE_NAME:arm64-latest" \
     --tag "$REGISTRY/$NAMESPACE/$IMAGE_NAME:latest-arm64" \
     --progress=plain \
     --push \
     .
 
 echo ""
-echo "✅ Build ARM64 concluído!"
+echo "✅ Build multi-platform concluído!"
 echo ""
 echo "🏷️  Tags criadas:"
-echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:$TAG"
-echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest-arm64"
+echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest (multi-arch)"
+echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:arm64-latest (arm64)"
+echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest-arm64 (arm64)"
 echo ""
-echo "🧪 Teste no servidor ARM64:"
-echo "   docker pull $REGISTRY/$NAMESPACE/$IMAGE_NAME:$TAG"
+echo "🧪 Teste AMD64 (local):"
+echo "   ./deploy/deploy-production.sh --start"
 echo ""
-echo "🚀 Use no deploy:"
+echo "🧪 Teste ARM64 (servidor):"
+echo "   docker pull $REGISTRY/$NAMESPACE/$IMAGE_NAME:arm64-latest"
 echo "   IMAGE_TAG=arm64-latest ./deploy/deploy-production.sh --start"
