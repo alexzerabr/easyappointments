@@ -36,10 +36,16 @@ fi
 
 # Verificar se está logado no GHCR
 echo "🔐 Verificando login GHCR..."
-if ! docker system info | grep -q "ghcr.io"; then
+if ! grep -q "ghcr.io" ~/.docker/config.json 2>/dev/null; then
+    echo "⚠️  Login GHCR não detectado"
     echo "Por favor, faça login no GHCR:"
     echo "docker login ghcr.io -u alexzerabr"
-    exit 1
+    read -p "Já fez login? (y/N): " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        exit 1
+    fi
+else
+    echo "✅ Login GHCR detectado"
 fi
 
 # Build da imagem ARM64

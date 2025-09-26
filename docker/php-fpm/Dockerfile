@@ -44,6 +44,15 @@ RUN cd /var/www/html \
     && composer install --optimize-autoloader --no-dev --no-interaction \
     && composer clear-cache
 
+# Copy package.json and build assets
+COPY --chown=www-data:www-data package.json package-lock.json* /var/www/html/
+RUN cd /var/www/html \
+    && npm install \
+    && npm run vendor \
+    && npm run scripts \
+    && npm run styles \
+    && rm -rf node_modules package*.json
+
 # Copy the rest of the application
 COPY --chown=www-data:www-data . /var/www/html/
 
