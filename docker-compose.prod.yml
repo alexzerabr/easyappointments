@@ -8,6 +8,7 @@ services:
     working_dir: /var/www/html
     volumes:
       - './storage:/var/www/html/storage'
+      - './config.php:/var/www/html/config.php:ro'
       - './docker/php-fpm/php-ini-production.ini:/usr/local/etc/php/conf.d/99-overrides.ini'
     environment:
       - APP_ENV=production
@@ -16,7 +17,7 @@ services:
       - DB_HOST=mysql
       - DB_PORT=${DB_PORT:-3306}
       - DB_DATABASE=${DB_DATABASE:-easyappointments}
-      - DB_USERNAME=${DB_USERNAME:-user}
+      - DB_USERNAME=${DB_USERNAME:-easyapp_user}
       - DB_PASSWORD=${DB_PASSWORD}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     depends_on:
@@ -73,15 +74,16 @@ services:
     working_dir: /var/www/html
     volumes:
       - './storage:/var/www/html/storage'
+      - './config.php:/var/www/html/config.php:ro'
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
       - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
       - DB_HOST=mysql
       - DB_PORT=${DB_PORT:-3306}
-      - DB_NAME=${DB_DATABASE:-easyappointments}
-      - DB_USER=${DB_USERNAME:-user}
-      - DB_PASS=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE:-easyappointments}
+      - DB_USERNAME=${DB_USERNAME:-easyapp_user}
+      - DB_PASSWORD=${DB_PASSWORD}
       - WPPCONNECT_TIMEOUT=${WPPCONNECT_TIMEOUT:-30}
       - WPPCONNECT_CONNECT_TIMEOUT=${WPPCONNECT_CONNECT_TIMEOUT:-10}
     restart: unless-stopped
