@@ -583,11 +583,21 @@ reset_production() {
     log "INFO" "Removing containers and volumes..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans --volumes --timeout 30 || true
     
-    # Remove production images
-    log "INFO" "Removing production images..."
-    docker images -q "easyappointments-*" 2>/dev/null | xargs -r docker rmi -f || true
+    # Remove ALL production images (more comprehensive)
+    log "INFO" "Removing ALL production images..."
     
-    # Clean storage
+    # Remove specific Easy!Appointments images by repository name
+    docker images --format "table {{.Repository}}:{{.Tag}}" | grep -i easyappointments | while read -r image; do
+        if [ -n "$image" ] && [ "$image" != "REPOSITORY:TAG" ]; then
+            log "INFO" "Removing image: $image"
+            docker rmi -f "$image" >/dev/null 2>&1 || true
+        fi
+    done
+    
+    # Fallback: Remove by pattern (for any remaining)
+    docker images -q | xargs -r docker inspect --format='{{.RepoTags}}' | grep -l easyappointments | xargs -r docker rmi -f || true
+    
+    # Clean storage directories
     log "INFO" "Cleaning storage directories..."
     find storage/logs -name "*.log" -delete 2>/dev/null || true
     find storage/cache -type f ! -name ".htaccess" ! -name "index.html" -delete 2>/dev/null || true
@@ -599,8 +609,15 @@ reset_production() {
         log "INFO" "Removed config.php for clean reset"
     fi
     
-    # Docker cleanup
-    docker system prune -f >/dev/null 2>&1 || true
+    # COMPREHENSIVE Docker cleanup - remove EVERYTHING
+    log "INFO" "Performing comprehensive Docker cleanup..."
+    log "WARN" "This will remove ALL unused Docker resources (images, containers, volumes, networks)"
+    
+    # Complete system cleanup including volumes
+    docker system prune -af --volumes >/dev/null 2>&1 || true
+    
+    # Additional cleanup for any remaining build cache
+    docker builder prune -af >/dev/null 2>&1 || true
     
     echo -e "\n${GREEN}🎯 Production environment reset completed!${NC}"
     log "SUCCESS" "Production reset completed"
