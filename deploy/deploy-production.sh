@@ -419,9 +419,11 @@ start_production() {
     # Pull from public GHCR (no authentication needed for public images)
     log "INFO" "Pulling from GitHub Container Registry (public)..."
     
-    # Pull latest images from GHCR
-    log "INFO" "Pulling latest images from GHCR..."
-    local image_name="ghcr.io/alexzerabr/easyappointments:latest"
+    # Pull images from GHCR with configurable tag
+    log "INFO" "Pulling images from GHCR..."
+    local image_tag="${IMAGE_TAG:-latest}"
+    local image_name="ghcr.io/alexzerabr/easyappointments:${image_tag}"
+    log "INFO" "Using image tag: ${image_tag}"
     
     if ! docker pull "$image_name"; then
         error_exit "Failed to pull image: $image_name. Please check if the image is available and published."
