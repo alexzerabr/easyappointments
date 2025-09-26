@@ -22,7 +22,7 @@ on:
       platforms:
         description: 'Target platforms'
         required: false
-        default: 'linux/amd64,linux/arm64'
+        default: 'linux/amd64'
         type: string
 
 env:
@@ -84,7 +84,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
+          platforms: ${{ inputs.platforms || 'linux/amd64' }}
 
       - name: Generate build summary
         run: |
