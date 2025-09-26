@@ -9,6 +9,7 @@ services:
     volumes:
       - './storage:/var/www/html/storage'
       - './config.php:/var/www/html/config.php:ro'
+      - './assets:/var/www/html/assets:ro'
       - './docker/php-fpm/php-ini-production.ini:/usr/local/etc/php/conf.d/99-overrides.ini'
     environment:
       - APP_ENV=production
