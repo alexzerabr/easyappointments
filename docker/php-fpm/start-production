@@ -90,4 +90,11 @@ fi
 
 # Switch to appuser for running the application
 echo "👤 Switching to appuser and starting php-fpm..."
-exec gosu appuser php-fpm
+
+# Create a log file that appuser can write to
+mkdir -p /var/www/html/storage/logs
+touch /var/www/html/storage/logs/php-fpm.log
+chown appuser:appuser /var/www/html/storage/logs/php-fpm.log
+
+# Start php-fpm as appuser with foreground mode and proper logging
+exec gosu appuser php-fpm -F -R
