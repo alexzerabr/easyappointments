@@ -1,27 +1,8 @@
 #!/bin/bash
 
-# Easy!Appointments Unified Production Deployment Script - FIXED VERSION
-# Version: 2.1 (Fixed)
-# Author: Unified Deployment System
-# 
-# CORRECTIONS APPLIED:
-# - Fixed config.php mounting and variable replacement
-# - Standardized environment variables across all services
-# - Added proper validation and error handling
-# - Improved database connectivity checks
-# - Fixed Docker image conflicts
-#
-# USAGE:
-#   ./deploy/deploy-production-fixed.sh --start     # Start production environment
-#   ./deploy/deploy-production-fixed.sh --stop      # Stop production environment
-#   ./deploy/deploy-production-fixed.sh --reset     # Reset production environment (DESTRUCTIVE!)
-#   ./deploy/deploy-production-fixed.sh --backup    # Create backup of production data
-#   ./deploy/deploy-production-fixed.sh --monitor   # Monitor production environment health
-
 set -euo pipefail
 
-# Script configuration
-SCRIPT_VERSION="2.1-FIXED"
+SCRIPT_VERSION="2.1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="docker-compose.prod.yml"
@@ -86,22 +67,18 @@ print_header() {
 validate_environment() {
     log "INFO" "Validating environment..."
     
-    # Check Docker
     if ! command -v docker &> /dev/null; then
         error_exit "Docker is not installed or not in PATH"
     fi
     
-    # Check Docker Compose
     if ! docker compose version &> /dev/null; then
         error_exit "Docker Compose v2 is required"
     fi
     
-    # Check if Docker daemon is running
     if ! docker info &> /dev/null; then
         error_exit "Docker daemon is not running"
     fi
     
-    # Check compose file
     if [ ! -f "$COMPOSE_FILE" ]; then
         error_exit "Docker Compose file not found: $COMPOSE_FILE"
     fi
@@ -120,12 +97,9 @@ generate_encryption_key() {
     openssl rand -hex 32
 }
 
-# Customize environment variables interactively
 customize_environment() {
     log "INFO" "Customizing environment variables..."
-    echo ""
     
-    # APP_URL
     local current_app_url=$(grep "APP_URL=" "$ENV_FILE" | cut -d'=' -f2)
     read -p "Enter APP_URL (current: $current_app_url): " new_app_url
     if [ -n "$new_app_url" ]; then
@@ -133,7 +107,6 @@ customize_environment() {
         log "INFO" "Updated APP_URL to: $new_app_url"
     fi
     
-    # HTTP_PORT
     local current_http_port=$(grep "HTTP_PORT=" "$ENV_FILE" | cut -d'=' -f2)
     read -p "Enter HTTP_PORT (current: $current_http_port): " new_http_port
     if [ -n "$new_http_port" ]; then
@@ -141,23 +114,6 @@ customize_environment() {
         log "INFO" "Updated HTTP_PORT to: $new_http_port"
     fi
     
-    # HTTPS_PORT
-    local current_https_port=$(grep "HTTPS_PORT=" "$ENV_FILE" | cut -d'=' -f2)
-    read -p "Enter HTTPS_PORT (current: $current_https_port): " new_https_port
-    if [ -n "$new_https_port" ]; then
-        sed -i "s/HTTPS_PORT=.*/HTTPS_PORT=$new_https_port/g" "$ENV_FILE"
-        log "INFO" "Updated HTTPS_PORT to: $new_https_port"
-    fi
-    
-    # MYSQL_PORT
-    local current_mysql_port=$(grep "MYSQL_PORT=" "$ENV_FILE" | cut -d'=' -f2)
-    read -p "Enter MYSQL_PORT (current: $current_mysql_port): " new_mysql_port
-    if [ -n "$new_mysql_port" ]; then
-        sed -i "s/MYSQL_PORT=.*/MYSQL_PORT=$new_mysql_port/g" "$ENV_FILE"
-        log "INFO" "Updated MYSQL_PORT to: $new_mysql_port"
-    fi
-    
-    echo ""
     log "SUCCESS" "Environment customization completed"
 }
 
@@ -245,7 +201,6 @@ setup_environment() {
     log "SUCCESS" "Environment setup completed"
 }
 
-# FIXED: Setup config.php from sample with proper variable replacement
 setup_config() {
     log "INFO" "Creating config.php from config-sample.php with production credentials..."
     
@@ -253,20 +208,16 @@ setup_config() {
         error_exit "config-sample.php not found"
     fi
     
-    # Always use config-sample.php as the base template
     log "INFO" "Using config-sample.php as template"
     cp config-sample.php config.php
     
-    # Replace placeholders with actual values from environment
     local app_url="${APP_URL:-http://localhost}"
     local http_port="${HTTP_PORT:-80}"
     
-    # If using non-standard HTTP port, include it in BASE_URL
     if [ "$http_port" != "80" ] && [ "$http_port" != "443" ]; then
         app_url="${app_url}:${http_port}"
     fi
     
-    # FIXED: Use more robust sed patterns that match the exact config-sample.php format
     sed -i "s|const BASE_URL = 'http://localhost';|const BASE_URL = '${app_url}';|g" config.php
     sed -i "s|const DEBUG_MODE = false;|const DEBUG_MODE = false;|g" config.php
     sed -i "s|const DB_HOST = 'mysql';|const DB_HOST = '${DB_HOST:-mysql}';|g" config.php
@@ -274,16 +225,12 @@ setup_config() {
     sed -i "s|const DB_USERNAME = 'user';|const DB_USERNAME = '${DB_USERNAME:-easyapp_user}';|g" config.php
     sed -i "s|const DB_PASSWORD = 'password';|const DB_PASSWORD = '${DB_PASSWORD}';|g" config.php
     
-    # Set production language if specified
     if [ -n "${APP_LANGUAGE:-}" ]; then
         sed -i "s|const LANGUAGE = 'english';|const LANGUAGE = '${APP_LANGUAGE}';|g" config.php
     fi
     
-    # FIXED: Verify that the replacement actually worked
     if grep -q "CHANGE_THIS_STRONG_PASSWORD\|password" config.php; then
         log "WARN" "Placeholder values still found in config.php, applying manual fix..."
-        
-        # Create config.php with the proper structure using cat/heredoc
         cat > config.php << EOF
 <?php
 /* ----------------------------------------------------------------------------
@@ -350,14 +297,11 @@ EOF
     log "INFO" "  - DEBUG_MODE: false"
 }
 
-# FIXED: Test database connectivity before starting services
 test_database_connectivity() {
     log "INFO" "Testing database connectivity..."
     
-    # Start only MySQL first to test connectivity
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d mysql
     
-    # Wait for MySQL to be ready
     log "INFO" "Waiting for MySQL to be ready..."
     local max_attempts=30
     local attempt=1
@@ -377,7 +321,6 @@ test_database_connectivity() {
         ((attempt++))
     done
     
-    # Test user connectivity
     log "INFO" "Testing application user connectivity..."
     if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T mysql mysql -h localhost -u "${DB_USERNAME:-easyapp_user}" -p"${DB_PASSWORD}" -e "SELECT 1;" &>/dev/null; then
         log "SUCCESS" "Database user connectivity test passed"
@@ -386,11 +329,8 @@ test_database_connectivity() {
     fi
 }
 
-# FIXED: Start production environment with proper validation
 start_production() {
     log "INFO" "Starting production environment..."
-    
-    # Check for existing containers
     if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q 2>/dev/null | grep -q .; then
         log "WARN" "Existing containers found. Checking status..."
         docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
@@ -403,23 +343,16 @@ start_production() {
         fi
     fi
     
-    # Setup config.php with production credentials BEFORE starting containers
     setup_config
     
-    # Validate config.php was created correctly
     if [ ! -f "config.php" ]; then
         error_exit "config.php was not created successfully"
     fi
     
-    # Verify config.php contains the right password (security check)
     if grep -q "CHANGE_THIS_STRONG_PASSWORD\|password.*[^']$" config.php; then
         error_exit "config.php still contains placeholder values"
     fi
     
-    # Pull from public GHCR (no authentication needed for public images)
-    log "INFO" "Pulling from GitHub Container Registry (public)..."
-    
-    # Pull images from GHCR with configurable tag
     log "INFO" "Pulling images from GHCR..."
     local image_tag="${IMAGE_TAG:-latest}"
     local image_name="ghcr.io/alexzerabr/easyappointments:${image_tag}"
@@ -429,21 +362,16 @@ start_production() {
         error_exit "Failed to pull image: $image_name. Please check if the image is available and published."
     fi
     
-    # Verify image was pulled successfully
     if ! docker image inspect "$image_name" >/dev/null 2>&1; then
         error_exit "Image verification failed: $image_name"
     fi
     
     log "SUCCESS" "Successfully pulled image: $image_name"
     
-    # FIXED: Test database connectivity first
     test_database_connectivity
-    
-    # Start all services
     log "INFO" "Starting all services..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
     
-    # Wait for services to be ready
     log "INFO" "Waiting for services to initialize..."
     sleep 30
 

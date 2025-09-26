@@ -22,12 +22,11 @@ on:
       platforms:
         description: 'Target platforms'
         required: false
-        default: 'linux/amd64'
+        default: 'linux/amd64,linux/arm64'
         type: string
 
 env:
   REGISTRY: ghcr.io
-  # Substitua pelos valores corretos do seu repositório
   GH_OWNER: ${{ github.repository_owner }}
   IMAGE_NAME: easyappointments
 
@@ -85,7 +84,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: ${{ inputs.platforms || 'linux/amd64' }}
+          platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
 
       - name: Generate build summary
         run: |

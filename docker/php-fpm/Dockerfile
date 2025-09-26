@@ -53,23 +53,30 @@ RUN cd /var/www/html \
     && npm run styles \
     && rm -rf node_modules package*.json
 
-# Copy the rest of the application
-COPY --chown=www-data:www-data . /var/www/html/
-
-# Remove development tools and optimize for production
+# Install gosu for user switching in production
 RUN apt-get update \
+    && apt-get install -y gosu \
     && apt-get remove -y git \
     && apt-get -y autoremove \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && rm -rf /usr/local/bin/composer
 
+# Copy the rest of the application to a temporary location for volume initialization
+COPY --chown=www-data:www-data . /tmp/app/
+
+# Copy app files to default location
+RUN cp -rf /tmp/app/* /var/www/html/ || true
+
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
-    && chown -R appuser:appuser /var/www/html \
     && mkdir -p /var/www/html/storage/logs \
-    && chown -R appuser:appuser /var/www/html/storage
+    && chown -R appuser:appuser /var/www/html/storage \
+    && chown -R appuser:appuser /tmp/app
 
-USER appuser
+# Copy production startup script
+COPY --chown=root:root docker/php-fpm/start-production /usr/local/bin/start-production
+RUN chmod +x /usr/local/bin/start-production
 
-CMD ["php-fpm"]
+# Start as root to handle volume initialization, then switch to appuser
+CMD ["/usr/local/bin/start-production"]
