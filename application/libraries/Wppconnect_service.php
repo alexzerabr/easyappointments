@@ -263,6 +263,11 @@ class Wppconnect_service
 
     /**
      * Get base URL for WPPConnect API.
+     * 
+     * Logic for port handling:
+     * - HTTPS URLs: Never add port (default 443)
+     * - HTTP URLs with domain: Only add port if explicitly provided in host
+     * - IP addresses: Always consider port from config
      *
      * @return string
      */
@@ -271,20 +276,73 @@ class Wppconnect_service
         $host = rtrim((string)($this->config['host'] ?? ''), '/');
         $port = $this->config['port'] ?? '';
 
-        if ($host !== '') {
-            $hasScheme = strpos($host, '://') !== false;
-            $hasPortInHost = (bool) preg_match('/:\d+$/', $host);
+        if (empty($host)) {
+            return '';
+        }
 
-            if ($hasScheme || $hasPortInHost) {
-                return $host;
+        // Check if host already contains scheme and/or port
+        $hasScheme = strpos($host, '://') !== false;
+        $hasPortInHost = (bool) preg_match('/:\d+$/', $host);
+
+        // If host already contains port, return as-is
+        if ($hasPortInHost) {
+            return $host;
+        }
+
+        // If no scheme, return host with port (backward compatibility)
+        if (!$hasScheme) {
+            if (!empty($port)) {
+                return $host . ':' . $port;
+            }
+            return $host;
+        }
+
+        // Parse URL components for scheme-based logic
+        $parsedUrl = parse_url($host);
+        if (!$parsedUrl || !isset($parsedUrl['scheme'], $parsedUrl['host'])) {
+            // Fallback: return original host
+            return $host;
+        }
+
+        $scheme = strtolower($parsedUrl['scheme']);
+        $hostname = $parsedUrl['host'];
+
+        // HTTPS: Never add port (uses default 443)
+        if ($scheme === 'https') {
+            return $host;
+        }
+
+        // HTTP: Differentiate between domains and IPs
+        if ($scheme === 'http') {
+            // Check if hostname is an IP address
+            if ($this->is_ip_address($hostname)) {
+                // IP address: Always add port if configured
+                if (!empty($port)) {
+                    return $host . ':' . $port;
+                }
+            } else {
+                // Domain name: Only add port if it was NOT already in original host
+                // Since we already checked $hasPortInHost above, we know it's not there
+                // For HTTP domains, only add port if explicitly configured AND not default
+                if (!empty($port) && $port != '80') {
+                    return $host . ':' . $port;
+                }
             }
         }
 
-        if ($host !== '' && $port !== '' && $port !== null) {
-            return $host . ':' . $port;
-        }
-
         return $host;
+    }
+
+    /**
+     * Check if a hostname is an IP address (IPv4 or IPv6).
+     *
+     * @param string $hostname
+     * @return bool
+     */
+    private function is_ip_address(string $hostname): bool
+    {
+        // Check for IPv4 or IPv6
+        return filter_var($hostname, FILTER_VALIDATE_IP) !== false;
     }
 
     /**
