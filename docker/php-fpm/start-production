@@ -88,13 +88,19 @@ else
     echo "♻️  Volume already initialized, skipping..."
 fi
 
-# Switch to appuser for running the application
-echo "👤 Switching to appuser and starting php-fpm..."
+# Start php-fpm (master runs as root; workers drop to pool user)
+echo "👤 Starting php-fpm..."
+
+# Always ensure storage directories exist and are writable by appuser
+mkdir -p /var/www/html/storage/logs /var/www/html/storage/sessions
+chown -R appuser:appuser /var/www/html/storage || true
+find /var/www/html/storage -type d -exec chmod 775 {} \; || true
+find /var/www/html/storage -type f -exec chmod 664 {} \; || true
 
 # Create a log file that appuser can write to
 mkdir -p /var/www/html/storage/logs
 touch /var/www/html/storage/logs/php-fpm.log
 chown appuser:appuser /var/www/html/storage/logs/php-fpm.log
 
-# Start php-fpm as appuser with foreground mode and proper logging
-exec gosu appuser php-fpm -F -R
+# Start php-fpm in foreground
+exec php-fpm -F

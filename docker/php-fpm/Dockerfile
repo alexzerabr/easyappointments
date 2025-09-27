@@ -77,5 +77,9 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser \
 COPY --chown=root:root docker/php-fpm/start-production /usr/local/bin/start-production
 RUN chmod +x /usr/local/bin/start-production
 
-# Start as root to handle volume initialization, then switch to appuser
+# Copy PHP-FPM configuration
+COPY --chown=root:root docker/php-fpm/php-fpm.conf /usr/local/etc/php-fpm.conf
+COPY --chown=root:root docker/php-fpm/zz-override.conf /usr/local/etc/php-fpm.d/zz-override.conf
+
+# Start as root to handle volume initialization, then start php-fpm via start script
 CMD ["/usr/local/bin/start-production"]
