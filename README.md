@@ -118,7 +118,8 @@ git push origin whatsapp-integration
 
 # 4. Deploy da nova versão
 ./deploy/deploy-production.sh --start
-# ✅ Puxa automaticamente a imagem mais recente
+# ✅ Puxa automaticamente a imagem mais recente na primeira vez
+# Para atualizar posteriormente, use --update (veja seção abaixo)
 ```
 
 ### **Cenário 2: Release com Versão**
@@ -132,6 +133,28 @@ git push origin v1.1.0
 #    📦 ghcr.io/alexzerabr/easyappointments:v1.1.0
 #    📦 ghcr.io/alexzerabr/easyappointments:latest (atualizada)
 ```
+
+### **Cenário 3: Atualização em Produção com `--update`**
+
+Use esta opção quando já existe um ambiente rodando e você publicou novas imagens no GHCR.
+
+```bash
+# Atualizar para a última imagem publicada (multi-arch)
+./deploy/deploy-production.sh --update
+
+# Se precisar repopular o volume de assets (CSS/JS) a partir da imagem:
+./deploy/deploy-production.sh --update --refresh-assets
+
+# Atualizar para uma tag específica
+IMAGE_TAG=v1.2.3 ./deploy/deploy-production.sh --update
+```
+
+O comando `--update` faz automaticamente:
+- Puxa as imagens mais recentes do GHCR
+- Para e recria os containers (mantendo volumes e dados)
+- Opcionalmente recria o volume `app_assets` quando `--refresh-assets` é informado
+- Ajusta permissões de `storage/`
+- Realiza health checks da aplicação e do MySQL
 
 ---
 
