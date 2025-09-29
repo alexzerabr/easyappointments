@@ -1,19 +1,19 @@
-# 🔨 Comandos Manuais de Build e Push
+# 🔨 Build e Push das Imagens (Multi‑arch)
 
 ## **Comandos Diretos (Copie e Cole)**
 
-### **1. Configuração Inicial**
+### **1) Configuração Inicial**
 ```bash
-# Definir variáveis (AJUSTE OS VALORES!)
-export GH_OWNER="your-github-username"
-export GHCR_TOKEN="your-github-token"
-export VERSION_TAG="v1.0.0.0"
+# Ajuste se necessário
+export GH_OWNER="alexzerabr"          # ou seu usuário/org no GitHub
+export GHCR_TOKEN="<seu-token-ghcr>"  # PAT com escopo repo
+export VERSION_TAG="v1.0.0"           # exemplo de versão
 
 # Login no GHCR
 echo $GHCR_TOKEN | docker login ghcr.io -u $GH_OWNER --password-stdin
 ```
 
-### **2. Build e Push - EasyAppointments**
+### **2) Build e Push (AMD64 + ARM64)**
 ```bash
 # Build com múltiplas arquiteturas e tags
 docker buildx build \
@@ -28,7 +28,9 @@ docker buildx build \
   --cache-to type=gha,mode=max
 ```
 
-### **3. Build Simples (apenas amd64)**
+> Observação sobre tags publicadas pelo pipeline: além de `latest` e `vX.Y.Z`, o build publica também `arm64-latest` e `latest-arm64` quando aplicável, para facilitar testes direcionados por arquitetura.
+
+### **3) Build Simples (apenas AMD64)**
 ```bash
 # Para desenvolvimento/teste local
 docker buildx build \
@@ -40,7 +42,7 @@ docker buildx build \
   --push
 ```
 
-### **4. Verificação**
+### **4) Verificação**
 ```bash
 # Verificar se a imagem foi publicada
 curl -H "Authorization: Bearer $GHCR_TOKEN" \
@@ -51,9 +53,11 @@ docker pull ghcr.io/$GH_OWNER/easyappointments:latest
 
 # Inspecionar a imagem
 docker image inspect ghcr.io/$GH_OWNER/easyappointments:latest
+# Opcional: manifest multi‑arch
+docker buildx imagetools inspect ghcr.io/$GH_OWNER/easyappointments:latest
 ```
 
-### **5. Build com Cache Local**
+### **5) Build com Cache Local**
 ```bash
 # Build usando cache local (mais rápido para desenvolvimento)
 docker buildx build \
@@ -71,7 +75,7 @@ docker buildx build \
 
 ### **Build e Push Completo**
 ```bash
-export GH_OWNER="your-username" && export VERSION_TAG="v1.0.0.0" && echo $GHCR_TOKEN | docker login ghcr.io -u $GH_OWNER --password-stdin && docker buildx build --context . --file docker/php-fpm/Dockerfile --target production --platform linux/amd64,linux/arm64 --tag ghcr.io/$GH_OWNER/easyappointments:$VERSION_TAG --tag ghcr.io/$GH_OWNER/easyappointments:latest --push
+export GH_OWNER="alexzerabr" && export VERSION_TAG="v1.0.0" && echo $GHCR_TOKEN | docker login ghcr.io -u $GH_OWNER --password-stdin && docker buildx build --context . --file docker/php-fpm/Dockerfile --target production --platform linux/amd64,linux/arm64 --tag ghcr.io/$GH_OWNER/easyappointments:$VERSION_TAG --tag ghcr.io/$GH_OWNER/easyappointments:latest --push
 ```
 
 ## **Comandos de Desenvolvimento**
@@ -154,4 +158,30 @@ docker buildx build --context . --file docker/php-fpm/Dockerfile --target produc
 
 # Build com logs detalhados
 BUILDKIT_PROGRESS=plain docker buildx build --context . --file docker/php-fpm/Dockerfile --target production --no-cache
+```
+
+---
+
+## 🚀 Deploy/Atualização em Produção
+
+Após publicar uma nova imagem no GHCR, atualize o ambiente de produção com o script de deploy:
+
+```bash
+# Atualizar para a última imagem publicada
+./deploy/deploy-production.sh --update
+
+# Caso os assets (CSS/JS) precisem ser repopulados a partir da imagem
+./deploy/deploy-production.sh --update --refresh-assets
+
+# Atualizar para uma tag específica (ex.: v1.0.0)
+IMAGE_TAG=v1.0.0 ./deploy/deploy-production.sh --update
+```
+
+O `--update` puxa as imagens, recria os containers preservando dados, ajusta permissões e realiza health checks. 
+
+Para uma experiência “tudo em um” durante desenvolvimento, você também pode usar o script local:
+
+```bash
+# Build multi‑arch local + push (mesmos tags do pipeline)
+./build-multiplatform-local-dev.sh --no-cache --push
 ```

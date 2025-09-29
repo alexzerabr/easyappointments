@@ -101,7 +101,6 @@ services:
         condition: service_healthy
       php-fpm:
         condition: service_started
-    # Run worker directly; init script ensures scripts exist
     command: ["php", "scripts/whatsapp_worker.php"]
     networks:
       - app-network
