@@ -49,6 +49,13 @@ if [ ! -f "$INIT_MARKER" ]; then
         echo "🎨 Copying built assets..."
         cp -rf /tmp/app/assets/* /var/www/html/assets/ 2>/dev/null || true
     fi
+
+    # Copy scripts directory (CLI workers, etc.)
+    if [ ! -d "/var/www/html/scripts" ]; then
+        echo "🛠️  Copying scripts directory..."
+        mkdir -p /var/www/html/scripts
+        cp -rf /tmp/app/scripts/* /var/www/html/scripts/ 2>/dev/null || true
+    fi
     
     # Copy system files (only if not already present)
     if [ ! -d "/var/www/html/system/core" ]; then
@@ -86,6 +93,14 @@ if [ ! -f "$INIT_MARKER" ]; then
     echo "✅ Volume initialization completed!"
 else
     echo "♻️  Volume already initialized, skipping..."
+fi
+
+# Ensure critical runtime files exist even after subsequent starts
+if [ ! -f "/var/www/html/scripts/whatsapp_worker.php" ] && [ -f "/tmp/app/scripts/whatsapp_worker.php" ]; then
+    echo "🧩 Ensuring scripts are present..."
+    mkdir -p /var/www/html/scripts
+    cp -rf /tmp/app/scripts/* /var/www/html/scripts/ 2>/dev/null || true
+    chown -R appuser:appuser /var/www/html/scripts 2>/dev/null || true
 fi
 
 # Start php-fpm (master runs as root; workers drop to pool user)
