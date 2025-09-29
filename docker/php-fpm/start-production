@@ -1,0 +1,106 @@
+#!/bin/bash
+set -euo pipefail
+
+echo "🚀 Starting Easy!Appointments Production Container"
+
+# Function to safely copy files
+safe_copy() {
+    local src="$1"
+    local dest="$2"
+    if [ -e "$src" ]; then
+        cp -rf "$src" "$dest"
+        echo "✅ Copied $src to $dest"
+    else
+        echo "⚠️  Source not found: $src"
+    fi
+}
+
+# Function to create directory with proper permissions
+ensure_dir() {
+    local dir="$1"
+    local mode="${2:-755}"
+    if [ ! -d "$dir" ]; then
+        mkdir -p "$dir"
+        chmod "$mode" "$dir"
+        echo "✅ Created directory: $dir with permissions $mode"
+    fi
+}
+
+# Check if this is the first run by looking for a marker file
+INIT_MARKER="/var/www/html/.docker-init-complete"
+
+if [ ! -f "$INIT_MARKER" ]; then
+    echo "🔧 First run detected - initializing shared volume..."
+    
+    # Ensure we have the basic directory structure
+    ensure_dir "/var/www/html/application" 755
+    ensure_dir "/var/www/html/assets" 755
+    ensure_dir "/var/www/html/system" 755
+    ensure_dir "/var/www/html/storage" 755
+    
+    # Copy application files (only if not already present)
+    if [ ! -d "/var/www/html/application/controllers" ]; then
+        echo "📁 Copying application files..."
+        cp -rf /tmp/app/application/* /var/www/html/application/ 2>/dev/null || true
+    fi
+    
+    # Copy assets files (only if not already present)
+    if [ ! -d "/var/www/html/assets/css" ] || [ ! -d "/var/www/html/assets/js" ]; then
+        echo "🎨 Copying built assets..."
+        cp -rf /tmp/app/assets/* /var/www/html/assets/ 2>/dev/null || true
+    fi
+    
+    # Copy system files (only if not already present)
+    if [ ! -d "/var/www/html/system/core" ]; then
+        echo "⚙️  Copying system files..."
+        cp -rf /tmp/app/system/* /var/www/html/system/ 2>/dev/null || true
+    fi
+    
+    # Copy vendor directory (only if not already present)
+    if [ ! -d "/var/www/html/vendor" ]; then
+        echo "📦 Copying vendor dependencies..."
+        cp -rf /tmp/app/vendor /var/www/html/ 2>/dev/null || true
+    fi
+    
+    # Copy essential files
+    echo "📄 Copying essential files..."
+    safe_copy "/tmp/app/index.php" "/var/www/html/"
+    safe_copy "/tmp/app/patch.php" "/var/www/html/"
+    
+    # Set proper ownership and permissions for the appuser
+    echo "🔐 Setting correct permissions..."
+    chown -R appuser:appuser /var/www/html/ 2>/dev/null || true
+    
+    # Ensure storage directories have proper permissions
+    find /var/www/html/storage -type d -exec chmod 755 {} \; 2>/dev/null || true
+    find /var/www/html/storage -type f -exec chmod 644 {} \; 2>/dev/null || true
+    
+    # Ensure assets are readable
+    find /var/www/html/assets -type d -exec chmod 755 {} \; 2>/dev/null || true
+    find /var/www/html/assets -type f -exec chmod 644 {} \; 2>/dev/null || true
+    
+    # Create initialization marker
+    touch "$INIT_MARKER"
+    chown appuser:appuser "$INIT_MARKER" 2>/dev/null || true
+    
+    echo "✅ Volume initialization completed!"
+else
+    echo "♻️  Volume already initialized, skipping..."
+fi
+
+# Start php-fpm (master runs as root; workers drop to pool user)
+echo "👤 Starting php-fpm..."
+
+# Always ensure storage directories exist and are writable by appuser
+mkdir -p /var/www/html/storage/logs /var/www/html/storage/sessions
+chown -R appuser:appuser /var/www/html/storage || true
+find /var/www/html/storage -type d -exec chmod 775 {} \; || true
+find /var/www/html/storage -type f -exec chmod 664 {} \; || true
+
+# Create a log file that appuser can write to
+mkdir -p /var/www/html/storage/logs
+touch /var/www/html/storage/logs/php-fpm.log
+chown appuser:appuser /var/www/html/storage/logs/php-fpm.log
+
+# Start php-fpm in foreground
+exec php-fpm -F
