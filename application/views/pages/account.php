@@ -173,6 +173,54 @@
                                         </label>
                                     </div>
                                 </div>
+
+                                <div class="border rounded mb-3 p-3">
+                                    <label class="form-label mb-3">
+                                        <?= lang('two_factor_verification') ?>
+                                    </label>
+                                    <div class="text-muted small mb-2">
+                                        <?= lang('two_factor_qr_code') ?>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" id="two-factor-enabled" type="checkbox" disabled>
+                                        <label class="form-check-label" for="two-factor-enabled">
+                                            <?= lang('two_factor_verification') ?>
+                                        </label>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button type="button" id="two-factor-setup-init" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-qrcode me-1"></i> <?= lang('two_factor_new') ?>
+                                        </button>
+                                    </div>
+                                    <div class="mt-3">
+                                        <div id="two-factor-qr-container" class="d-none border p-2 mx-auto" style="max-width:200px;max-height:200px;width:100%;aspect-ratio:1/1;"></div>
+                                        <img id="two-factor-qr" class="d-none border p-2 img-fluid mx-auto d-block" style="max-width:200px;" alt="2FA QR" />
+                                    </div>
+                                    <div class="mt-3">
+                                        <input type="text" id="two-factor-code" class="form-control" placeholder="000000" maxlength="8">
+                                    </div>
+                                    <div class="mt-3">
+                                        <button type="button" id="two-factor-enable" class="btn btn-success d-none">
+                                            <i class="fas fa-check me-1"></i> <?= lang('two_factor_enable') ?>
+                                        </button>
+                                        <button type="button" id="two-factor-disable" class="btn btn-danger d-none">
+                                            <i class="fas fa-times me-1"></i> <?= lang('two_factor_disable') ?>
+                                        </button>
+                                    </div>
+                                    <div id="two-factor-codes-wrap" class="mt-3 d-none">
+                                        <label class="form-label"><?= lang('two_factor_recovery_codes') ?></label>
+                                        <ul id="two-factor-codes" class="small"></ul>
+                                            <div class="mt-2">
+                                                <button type="button" id="two-factor-regenerate" class="btn btn-outline-secondary btn-sm">
+                                                    <i class="fas fa-rotate me-1"></i> <?= lang('two_factor_regenerate') ?>
+                                                </button>
+                                            </div>
+                                    </div>
+                                    <div id="two-factor-devices" class="mt-3 d-none">
+                                        <label class="form-label"><?= lang('two_factor_devices') ?></label>
+                                        <div id="two-factor-devices-list" class="small"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </fieldset>
@@ -187,6 +235,8 @@
 
 <?php section('scripts'); ?>
 
+<script src="<?= asset_url('assets/js/http/two_factor_http_client.js') ?>"></script>
+<script src="<?= asset_url('assets/js/vendor/qrcode.min.js') ?>"></script>
 <script src="<?= asset_url('assets/js/http/account_http_client.js') ?>"></script>
 <script src="<?= asset_url('assets/js/pages/account.js') ?>"></script>
 

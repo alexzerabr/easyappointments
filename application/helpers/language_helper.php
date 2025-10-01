@@ -34,6 +34,11 @@ if (!function_exists('lang')) {
             $result = '<label for="' . $for . '"' . _stringify_attributes($attributes) . '>' . $result . '</label>';
         }
 
-        return $result ?: $line;
+        if ($result) {
+            return $result;
+        }
+
+        // Fallback: return a humanized version without underscores
+        return str_replace('_', ' ', $line);
     }
 }

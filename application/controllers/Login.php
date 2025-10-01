@@ -84,12 +84,54 @@ class Login extends EA_Controller
                 throw new InvalidArgumentException(lang('invalid_credentials_provided'));
             }
 
+            // 2FA handshake: if enabled and not a remembered device, do not promote session yet.
+            $user = $this->accounts->get_user_by_username($username);
+            $settings = $this->db->get_where('user_settings', ['id_users' => $user['id']])->row_array();
+
+            $require_2fa = !empty($settings['two_factor_enabled']) && !empty($settings['two_factor_secret']);
+
+            if ($require_2fa) {
+                // Check remembered device via cookie token hash
+                $token = (string) $this->input->cookie('ea_2fa_device', true);
+                $hash = $token ? hash('sha256', $token) : '';
+                $remembered = [];
+                if ($hash) {
+                    $remembered = $this->db
+                        ->from('user_two_factor_devices')
+                        ->where(['id_users' => $user['id'], 'device_hash' => $hash])
+                        ->where('(expires_datetime IS NULL OR expires_datetime > NOW())')
+                        ->get()
+                        ->row_array();
+                }
+
+                if (!$remembered) {
+                    // Mark session as pending and require verification
+                    session([
+                        'pending_user_id' => $user['id'],
+                        'pending_username' => $username,
+                    ]);
+
+                    // Preload language for pending user so 2FA page renders correctly
+                    if (!empty($user['language'])) {
+                        session(['language' => $user['language']]);
+                    }
+
+                    json_response([
+                        'success' => true,
+                        'requires_2fa' => true,
+                        'redirect' => site_url('two_factor/verify'),
+                    ]);
+                    return;
+                }
+            }
+
             $this->session->sess_regenerate();
 
             session($user_data); // Save data in the session.
 
             json_response([
                 'success' => true,
+                'requires_2fa' => false,
             ]);
         } catch (Throwable $e) {
             json_exception($e);

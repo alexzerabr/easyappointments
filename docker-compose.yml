@@ -1,6 +1,9 @@
 services:
   php-fpm:
-    build: docker/php-fpm
+    build:
+      context: .
+      dockerfile: docker/php-fpm/Dockerfile
+      target: base
     working_dir: /var/www/html
     extra_hosts:
       - host.docker.internal:host-gateway
@@ -110,7 +113,10 @@ services:
       - openldap
 
   whatsapp-worker:
-    build: docker/php-fpm
+    build:
+      context: .
+      dockerfile: docker/php-fpm/Dockerfile
+      target: base
     working_dir: /var/www/html
     volumes:
       - '.:/var/www/html'

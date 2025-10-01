@@ -42,6 +42,10 @@ App.Pages.Login = (function () {
 
         App.Http.Login.validate(username, password).done((response) => {
             if (response.success) {
+                if (response.requires_2fa) {
+                    window.location.href = response.redirect || App.Utils.Url.siteUrl('two_factor/verify');
+                    return;
+                }
                 window.location.href = vars('dest_url');
             } else {
                 $alert.text(lang('login_failed'));

@@ -8,8 +8,8 @@
             }
 
             if (!lang[key]) {
-                console.error(`Cannot find translation for requested key: "${key}"`);
-                return key;
+                // Fallback: humanize key instead of logging console error
+                return String(key).replaceAll('_', ' ');
             }
 
             return lang[key];

@@ -133,10 +133,12 @@ setup_environment() {
             # Copy example file
             cp "$ENV_EXAMPLE" "$ENV_FILE"
             
-            # Generate WA_TOKEN_ENC_KEY if empty
+            # Generate WA_TOKEN_ENC_KEY if empty (escape replacement and avoid sed delimiter issues)
             if grep -q "WA_TOKEN_ENC_KEY=$" "$ENV_FILE"; then
-                local wa_token_key=$(openssl rand -base64 32)
-                sed -i "s/WA_TOKEN_ENC_KEY=$/WA_TOKEN_ENC_KEY=$wa_token_key/" "$ENV_FILE"
+                local wa_token_key=$(openssl rand -base64 32 | tr -d '\n')
+                # Escape characters that are special in sed replacement
+                local escaped_key=$(printf '%s' "$wa_token_key" | sed -e 's/[&|]/\\&/g')
+                sed -i "s|WA_TOKEN_ENC_KEY=$|WA_TOKEN_ENC_KEY=$escaped_key|" "$ENV_FILE"
                 log "SUCCESS" "Generated WA_TOKEN_ENC_KEY for development"
             fi
             

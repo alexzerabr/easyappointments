@@ -485,4 +485,27 @@ $lang['calendar_url'] = 'Calendar URL';
 $lang['please_select'] = 'Please Select';
 $lang['secret_header'] = 'Secret Header';
 $lang['search'] = 'Search';
+// Two Factor Authentication
+$lang['two_factor_verification'] = 'Two-Factor Authentication';
+$lang['two_factor_setup'] = 'Two-Factor Setup';
+$lang['two_factor_enable'] = 'Enable 2FA';
+$lang['two_factor_disable'] = 'Disable 2FA';
+$lang['two_factor_new'] = 'New 2FA';
+$lang['two_factor_qr_code'] = 'Scan this QR code with your authenticator app';
+$lang['two_factor_secret'] = 'Secret';
+$lang['two_factor_recovery_codes'] = 'Recovery Codes';
+$lang['two_factor_regenerate'] = 'Regenerate';
+$lang['two_factor_download_codes'] = 'Download Codes';
+$lang['two_factor_devices'] = 'Remembered Devices';
+$lang['two_factor_revoke'] = 'Revoke';
+$lang['two_factor_device_revoked_success'] = 'Device revoked successfully.';
+$lang['two_factor_enabled_success'] = 'Two-Factor Authentication has been enabled.';
+$lang['two_factor_disabled_success'] = 'Two-Factor Authentication has been disabled.';
+$lang['two_factor_recovery_codes_regenerated'] = 'Recovery codes were regenerated.';
+$lang['enter_the_6_digit_code_from_your_authenticator_app'] = 'Enter the 6-digit code from your authenticator app.';
+$lang['enter_6_digit_or_recovery_code'] = 'Enter the 6-digit code or a full recovery code.';
+$lang['verification_code'] = 'Verification Code';
+$lang['remember_this_device_for_30_days'] = 'Remember this device for 30 days';
+$lang['verify'] = 'Verify';
+$lang['invalid_totp_code'] = 'Invalid verification code.';
 // End

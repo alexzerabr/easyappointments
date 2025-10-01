@@ -41,7 +41,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                     'constraint' => 255,
                     'null' => true,
                 ],
-                // port column removed; host may contain explicit port if needed
                 'session' => [
                     'type' => 'VARCHAR',
                     'constraint' => 100,
@@ -73,7 +72,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                     'type' => 'DATETIME',
                     'null' => true,
                 ],
-                // Token rotation fields
                 'token_prev_enc' => [
                     'type' => 'TEXT',
                     'null' => TRUE,
@@ -102,7 +100,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                 'update_datetime' => date('Y-m-d H:i:s'),
             ]);
         }
-        // Ensure legacy 'port' column is removed if migrating from older dev versions
         if ($this->db->table_exists('whatsapp_integration_settings') && $this->db->field_exists('port', 'whatsapp_integration_settings')) {
             $this->dbforge->drop_column('whatsapp_integration_settings', 'port');
         }
@@ -377,7 +374,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                     'type' => 'DATETIME',
                     'null' => TRUE
                 ],
-                // Reprocessing fields
                 'calculated_send_time' => [
                     'type' => 'DATETIME',
                     'null' => TRUE,
@@ -539,7 +535,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
      */
     private function add_foreign_keys(): void
     {
-        // Helper function to check if foreign key exists
         $fk_exists = function($table, $constraint_name) {
             $result = $this->db->query(
                 "SELECT COUNT(*) as count FROM information_schema.KEY_COLUMN_USAGE 
@@ -560,7 +555,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                      ON DELETE SET NULL ON UPDATE CASCADE'
                 );
             } catch (Exception $e) {
-                // Foreign key creation failed, continue
             }
         }
 
@@ -601,7 +595,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                      ON DELETE CASCADE ON UPDATE CASCADE'
                 );
             } catch (Exception $e) {
-                // Foreign key creation failed, continue
             }
         }
 
@@ -614,7 +607,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                      ON DELETE SET NULL ON UPDATE CASCADE'
                 );
             } catch (Exception $e) {
-                // Foreign key creation failed, continue
             }
         }
     }
@@ -624,10 +616,8 @@ class Migration_Create_whatsapp_integration extends EA_Migration
      */
     public function down(): void
     {
-        // Drop foreign key constraints first
         $this->drop_foreign_keys();
 
-        // Drop tables in reverse order (respecting foreign key constraints)
         $tables_to_drop = [
             'whatsapp_routine_execution_logs',
             'whatsapp_routine_sends',
@@ -644,7 +634,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
             }
         }
 
-        // Remove template_id from appointments table
         if ($this->db->field_exists('template_id', 'appointments')) {
             $this->dbforge->drop_column('appointments', 'template_id');
         }
@@ -664,7 +653,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                  DROP FOREIGN KEY `whatsapp_message_logs_appointment_id_fk`'
             );
         } catch (Exception $e) {
-            // Foreign key might not exist
         }
 
         try {
@@ -673,7 +661,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                  DROP FOREIGN KEY `whatsapp_message_logs_template_id_fk`'
             );
         } catch (Exception $e) {
-            // Foreign key might not exist
         }
 
         // Appointments template_id foreign key
@@ -683,17 +670,14 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                  DROP FOREIGN KEY `appointments_template_id_fk`'
             );
         } catch (Exception $e) {
-            // Foreign key might not exist
         }
 
-        // WhatsApp routine execution logs foreign keys
         try {
             $this->db->query(
                 'ALTER TABLE `' . $this->db->dbprefix('whatsapp_routine_execution_logs') . '` 
                  DROP FOREIGN KEY `whatsapp_execution_logs_routine_id_fk`'
             );
         } catch (Exception $e) {
-            // Foreign key might not exist
         }
 
         try {
@@ -702,7 +686,6 @@ class Migration_Create_whatsapp_integration extends EA_Migration
                  DROP FOREIGN KEY `whatsapp_execution_logs_template_id_fk`'
             );
         } catch (Exception $e) {
-            // Foreign key might not exist
         }
 
         $this->db->query('SET FOREIGN_KEY_CHECKS = 1');

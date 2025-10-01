@@ -201,6 +201,23 @@ $route['whatsapp_templates/import_templates']['post'] = 'whatsapp_templates/impo
 
 /*
 | -------------------------------------------------------------------------
+| TWO FACTOR AUTH ROUTING
+| -------------------------------------------------------------------------
+*/
+$route['two_factor'] = 'two_factor/verify';
+$route['two_factor/verify'] = 'two_factor/verify';
+$route['two_factor/validate']['post'] = 'two_factor/validate';
+$route['two_factor/remember']['post'] = 'two_factor/remember';
+$route['two_factor/is_device_remembered']['get'] = 'two_factor/is_device_remembered';
+$route['two_factor/setup_init']['post'] = 'two_factor/setup_init';
+$route['two_factor/setup_enable']['post'] = 'two_factor/setup_enable';
+$route['two_factor/setup_disable']['post'] = 'two_factor/setup_disable';
+$route['two_factor/regenerate_recovery_codes']['post'] = 'two_factor/regenerate_recovery_codes';
+$route['two_factor/devices']['get'] = 'two_factor/devices';
+$route['two_factor/revoke_device']['post'] = 'two_factor/revoke_device';
+
+/*
+| -------------------------------------------------------------------------
 | CUSTOM ROUTING
 | -------------------------------------------------------------------------
 | You can add custom routes to the following section to define URL patterns
