@@ -19,9 +19,8 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[1;37m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Change to project root
 cd "$ROOT_DIR"
 
 # Logging function
@@ -34,7 +33,6 @@ log() {
     # Ensure log directory exists
     mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
     
-    # Write to log file
     echo "[$timestamp] [$level] $message" >> "$LOG_FILE" 2>/dev/null || true
     
     # Output to console with colors
@@ -114,7 +112,6 @@ customize_environment() {
         log "INFO" "Updated HTTP_PORT to: $new_http_port"
     fi
 
-    # Also allow editing HTTPS port at creation time
     local current_https_port=$(grep "HTTPS_PORT=" "$ENV_FILE" | cut -d'=' -f2)
     read -p "Enter HTTPS_PORT (current: $current_https_port): " new_https_port
     if [ -n "$new_https_port" ]; then
@@ -127,7 +124,6 @@ customize_environment() {
 
 # Setup environment file with auto-generated credentials
 setup_environment() {
-    # action can be: start|reset|stop|backup|monitor (used to decide prompting)
     local action="${1:-}"
     if [ ! -f "$ENV_FILE" ]; then
         log "WARN" "Production environment file not found"
@@ -190,7 +186,7 @@ setup_environment() {
                 cp "$ENV_FILE" "$backup_env_file"
                 log "INFO" "Backed up existing environment to: $backup_env_file"
                 rm "$ENV_FILE"
-                setup_environment  # Recursive call to regenerate
+                setup_environment
                 return
             fi
         fi
@@ -351,8 +347,8 @@ test_database_connectivity() {
     fi
 }
 
-start_production() {
-    log "INFO" "Starting production environment..."
+initialize_production() {
+    log "INFO" "Initializing production environment (fresh install)..."
     if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q 2>/dev/null | grep -q .; then
         log "WARN" "Existing containers found. Checking status..."
         docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
@@ -482,6 +478,33 @@ start_production() {
     log "SUCCESS" "Production deployment completed - environment is 100% ready!"
 }
 
+# Start production environment (without full initialization)
+start_production() {
+    log "INFO" "Starting production environment..."
+    
+    if ! docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q 2>/dev/null | grep -q .; then
+        log "WARN" "No existing containers found. Use --initialize for fresh setup."
+        read -p "Start anyway? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log "INFO" "Operation cancelled by user"
+            exit 0
+        fi
+    fi
+    
+    log "INFO" "Starting all services..."
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+    
+    log "INFO" "Waiting for services to initialize..."
+    sleep 10
+    
+    echo -e "\n${GREEN}✅ Production environment started!${NC}"
+    echo -e "${BLUE}🐳 Container Status:${NC}"
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
+    
+    log "SUCCESS" "Production environment started successfully"
+}
+
 # Stop production environment
 stop_production() {
     log "INFO" "Stopping production environment..."
@@ -553,13 +576,11 @@ reset_production() {
     find storage/cache -type f ! -name ".htaccess" ! -name "index.html" -delete 2>/dev/null || true
     find storage/sessions -type f ! -name ".htaccess" ! -name "index.html" -delete 2>/dev/null || true
     
-    # FIXED: Remove config.php to ensure clean state
     if [ -f "config.php" ]; then
         rm -f config.php
         log "INFO" "Removed config.php for clean reset"
     fi
 
-    # Remove environment file to enforce full regeneration on next start
     if [ -f "$ENV_FILE" ]; then
         rm -f "$ENV_FILE"
         log "INFO" "Removed $ENV_FILE for clean reset"
@@ -688,7 +709,6 @@ monitor_production() {
     return $exit_code
 }
 
-# Update production environment (pull + recreate). Optionally refresh assets volume.
 update_production() {
     log "INFO" "Updating production environment..."
 
@@ -702,16 +722,12 @@ update_production() {
     log "INFO" "Stopping and removing current containers (keeping volumes)..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans || true
 
-    # Optionally refresh app_assets volume to repopulate static files from image
     if [ "$refresh_assets" = "--refresh-assets" ]; then
         log "WARN" "Refreshing assets volume 'app_assets'..."
-        # Determine actual volume name (project directory prefix)
         local project_name
         project_name=$(basename "$ROOT_DIR" | tr -cd '[:alnum:]_-' )
         local volume_name="${project_name}_app_assets"
-        # Fallback if default naming differs
         if ! docker volume inspect "$volume_name" >/dev/null 2>&1; then
-            # Try known default name
             volume_name="easyappointments_app_assets"
         fi
         docker volume rm "$volume_name" >/dev/null 2>&1 || true
@@ -731,6 +747,19 @@ update_production() {
         find /var/www/html/storage -type d -exec chmod 755 {} \; 2>/dev/null || true
         find /var/www/html/storage -type f -exec chmod 644 {} \; 2>/dev/null || true
     ' || true
+
+    # Run database migrations automatically
+    log "INFO" "Running database migrations..."
+    if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T php-fpm php patch.php migration latest 2>&1 | tee /tmp/migration.log | grep -qE "completed|patches"; then
+        log "SUCCESS" "Migrations completed successfully"
+    else
+        if grep -q "no new patches" /tmp/migration.log; then
+            log "INFO" "Database is already up to date"
+        else
+            log "WARN" "Migration command completed with warnings (check logs)"
+        fi
+    fi
+    rm -f /tmp/migration.log 2>/dev/null || true
 
     # Validate app
     log "INFO" "Validating application response after update..."
@@ -754,22 +783,28 @@ show_usage() {
     echo "  $0 [OPTION]"
     echo ""
     echo -e "${WHITE}OPTIONS:${NC}"
-    echo -e "  ${GREEN}--start${NC}     Start production environment"
-    echo -e "  ${YELLOW}--stop${NC}      Stop production environment gracefully"
-    echo -e "  ${RED}--reset${NC}     Reset production environment (DESTRUCTIVE!)"
-    echo -e "  ${BLUE}--backup${NC}    Create backup of production data"
-    echo -e "  ${PURPLE}--monitor${NC}   Monitor production environment health"
-    echo -e "  ${CYAN}--update${NC}   Pull latest images and recreate containers (keeps data)"
-    echo -e "  ${CYAN}--help${NC}      Show this help message"
+    echo -e "  ${GREEN}--initialize${NC}  Initialize production environment (fresh install)"
+    echo -e "  ${GREEN}--start${NC}       Start production environment (existing setup)"
+    echo -e "  ${YELLOW}--stop${NC}        Stop production environment gracefully"
+    echo -e "  ${RED}--reset${NC}       Reset production environment (DESTRUCTIVE!)"
+    echo -e "  ${BLUE}--backup${NC}      Create backup of production data"
+    echo -e "  ${PURPLE}--monitor${NC}     Monitor production environment health"
+    echo -e "  ${CYAN}--update${NC}       Pull latest images, recreate containers, and run migrations"
+    echo -e "  ${CYAN}--help${NC}        Show this help message"
+    echo ""
+    echo -e "${WHITE}WORKFLOW:${NC}"
+    echo -e "  1. First time:  ${GREEN}--initialize${NC}  (setup + config + start)"
+    echo -e "  2. Updates:     ${CYAN}--update${NC}      (pull + restart + migrate)"
+    echo -e "  3. Daily ops:   ${GREEN}--start${NC} / ${YELLOW}--stop${NC}"
     echo ""
     echo -e "${WHITE}VERSION:${NC} $SCRIPT_VERSION"
     echo ""
-    echo -e "${WHITE}FIXES APPLIED:${NC}"
-    echo -e "  ✅ Fixed config.php mounting and variable replacement"
-    echo -e "  ✅ Standardized environment variables across all services"
-    echo -e "  ✅ Added proper validation and error handling"
-    echo -e "  ✅ Improved database connectivity checks"
-    echo -e "  ✅ Fixed Docker image conflicts"
+    echo -e "${WHITE}FEATURES:${NC}"
+    echo -e "  ✅ Auto-generated secure credentials"
+    echo -e "  ✅ Automatic database migrations on update"
+    echo -e "  ✅ Asset and code auto-update"
+    echo -e "  ✅ Health checks and validation"
+    echo -e "  ✅ Docker multi-platform support"
 }
 
 # Main script logic
@@ -781,6 +816,12 @@ main() {
     fi
     
     case "$1" in
+        --initialize)
+            print_header
+            validate_environment
+            setup_environment start
+            initialize_production
+            ;;
         --start)
             print_header
             validate_environment
