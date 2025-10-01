@@ -1,0 +1,40 @@
+# Docker volumes and runtime data
+docker/openldap/slapd/config/
+docker/openldap/slapd/data/
+docker/mysql/data/
+storage/
+
+# Development files
+.git/
+.github/
+.gitignore
+.dockerignore
+*.md
+!README.md
+screenshot.png
+logo.png
+
+# Node modules and build artifacts
+node_modules/
+npm-debug.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and CI files
+tests/
+phpunit.xml
+.phpunit.result.cache
+
+# Deployment scripts (não necessários dentro da imagem)
+build-multiplatform-local-dev.sh
+deploy/
+
