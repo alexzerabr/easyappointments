@@ -93,6 +93,23 @@ if [ ! -f "$INIT_MARKER" ]; then
     echo "✅ Volume initialization completed!"
 else
     echo "♻️  Volume already initialized, skipping..."
+    
+    # On subsequent runs, check if we should update assets (for image updates)
+    # Compare modification times to detect new build
+    if [ -d "/tmp/app/assets" ] && [ -d "/var/www/html/assets" ]; then
+        TMP_MTIME=$(stat -c %Y /tmp/app/assets 2>/dev/null || stat -f %m /tmp/app/assets 2>/dev/null || echo 0)
+        VOL_MTIME=$(stat -c %Y /var/www/html/assets 2>/dev/null || stat -f %m /var/www/html/assets 2>/dev/null || echo 0)
+        
+        if [ "$TMP_MTIME" -gt "$VOL_MTIME" ]; then
+            echo "🔄 Newer assets detected - updating compiled files..."
+            # Update only compiled assets (preserve any user uploads if in assets)
+            cp -rf /tmp/app/assets/js/*.min.js /var/www/html/assets/js/ 2>/dev/null || true
+            cp -rf /tmp/app/assets/css/*.min.css /var/www/html/assets/css/ 2>/dev/null || true
+            cp -rf /tmp/app/assets/vendor /var/www/html/assets/ 2>/dev/null || true
+            chown -R appuser:appuser /var/www/html/assets 2>/dev/null || true
+            echo "✅ Assets updated successfully"
+        fi
+    fi
 fi
 
 # Ensure critical runtime files exist even after subsequent starts
