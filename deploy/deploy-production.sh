@@ -147,13 +147,6 @@ setup_environment() {
             echo -e "${BLUE}  💾 Backup Encryption Key: ${WHITE}$backup_encryption_key${NC}"
             echo ""
             
-            if [ "$action" = "start" ]; then
-                read -p "Do you want to customize APP_URL and ports (HTTP/HTTPS)? (y/N): " -n 1 -r
-                echo
-                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                    customize_environment
-                fi
-            fi
         else
             error_exit "Environment example file not found: $ENV_EXAMPLE"
         fi
@@ -174,14 +167,6 @@ setup_environment() {
             fi
         fi
 
-        if [ "$action" = "start" ]; then
-            echo
-            read -p "Do you want to customize APP_URL and ports (HTTP/HTTPS)? (y/N): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                customize_environment
-            fi
-        fi
     fi
     
     log "INFO" "Loading environment variables..."
@@ -720,7 +705,7 @@ main() {
         --start)
             print_header
             validate_environment
-            setup_environment start
+            setup_environment
             start_production
             ;;
         --stop)
