@@ -72,6 +72,21 @@
                 <div class="card-body">
                     <form id="whatsapp-settings-form">
                         <div class="row">
+                            <div class="col-md-12 mb-4">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="whatsapp-enabled" data-field="enabled" 
+                                           <?= !empty($whatsapp_settings['enabled']) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="whatsapp-enabled">
+                                        <strong><?= lang('whatsapp_integration_enabled') ?: 'Habilitar Integração WhatsApp' ?></strong>
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Habilita o envio automático de mensagens WhatsApp.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-md-12 mb-3">
                                 <label for="whatsapp-host" class="form-label">
                                     <?= lang('whatsapp_host') ?> *
@@ -79,7 +94,7 @@
                                 <input type="text" id="whatsapp-host" data-field="host" class="form-control" 
                                        value="<?= $whatsapp_settings['host'] ?? 'http://localhost:21465' ?>" 
                                        placeholder="Ex.: http://localhost:21465 | 127.0.0.1:21465 | https://seu-dominio" required>
-                                <div class="form-text">Informe o host completo, podendo incluir porta. Ex.: http://localhost:21465, 127.0.0.1:21465, https://wpp.seu-dominio</div>
+                                <div class="form-text">Preencha os dados de integração WPPConnect.</div>
                             </div>
                         </div>
 

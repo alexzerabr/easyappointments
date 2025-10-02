@@ -9,7 +9,7 @@ class Rotinas_whatsapp_model extends EA_Model
      */
     public function get_active(): array
     {
-        $rows = $this->db->get_where('rotinas_whatsapp', ['ativa' => 1])->result_array();
+        $rows = $this->db->get_where('ea_rotinas_whatsapp', ['ativa' => 1])->result_array();
         foreach ($rows as &$r) $this->cast($r);
         return $rows;
     }
@@ -38,11 +38,11 @@ class Rotinas_whatsapp_model extends EA_Model
         $this->db
             ->select('ea_appointments.*')
             ->from('ea_appointments')
-            ->join('whatsapp_routine_sends s', 's.appointment_id = ea_appointments.id AND s.routine_id = ' . (int)$routine['id'], 'left')
-            ->where('is_unavailability', false)
-            ->where('status', $routine['status_agendamento'])
-            ->where('start_datetime >=', $sql_from)
-            ->where('start_datetime <=', $sql_to)
+            ->join('ea_whatsapp_routine_sends s', 's.appointment_id = ea_appointments.id AND s.routine_id = ' . (int)$routine['id'], 'left')
+            ->where('ea_appointments.is_unavailability', false)
+            ->where('ea_appointments.status', $routine['status_agendamento'])
+            ->where('ea_appointments.start_datetime >=', $sql_from)
+            ->where('ea_appointments.start_datetime <=', $sql_to)
             ->group_start()
                 ->where('s.appointment_id IS NULL', null, false) // Never sent
                 ->or_where('(s.appointment_start_time != ea_appointments.start_datetime OR s.routine_hours_before != ' . (int)$hours_before . ')', null, false) // Appointment time changed or routine config changed
@@ -131,14 +131,14 @@ class Rotinas_whatsapp_model extends EA_Model
         $now = date('Y-m-d H:i:s');
 
         $this->db
-            ->select('appointments.*')
-            ->from('appointments')
-            ->join('whatsapp_routine_sends s', 's.appointment_id = appointments.id AND s.routine_id = ' . (int)$routine['id'], 'left')
+            ->select('ea_appointments.*')
+            ->from('ea_appointments')
+            ->join('ea_whatsapp_routine_sends s', 's.appointment_id = ea_appointments.id AND s.routine_id = ' . (int)$routine['id'], 'left')
             ->where('s.appointment_id IS NULL', null, false)
-            ->where('is_unavailability', false)
-            ->where('status', $routine['status_agendamento'])
-            ->where('start_datetime >=', $now)
-            ->order_by('start_datetime ASC');
+            ->where('ea_appointments.is_unavailability', false)
+            ->where('ea_appointments.status', $routine['status_agendamento'])
+            ->where('ea_appointments.start_datetime >=', $now)
+            ->order_by('ea_appointments.start_datetime ASC');
 
         $query = $this->db->get();
         $rows = $query->result_array();
@@ -154,10 +154,10 @@ class Rotinas_whatsapp_model extends EA_Model
         // First, remove any existing record for this routine+appointment combination
         $this->db->where('routine_id', $routine_id)
                  ->where('appointment_id', $appointment_id)
-                 ->delete('whatsapp_routine_sends');
+                 ->delete('ea_whatsapp_routine_sends');
         
         // Insert new record with reprocessing data
-        return (bool)$this->db->insert('whatsapp_routine_sends', [
+        return (bool)$this->db->insert('ea_whatsapp_routine_sends', [
             'routine_id' => $routine_id,
             'appointment_id' => $appointment_id,
             'log_id' => $log_id,

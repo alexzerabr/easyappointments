@@ -71,7 +71,7 @@ class Whatsapp_templates_model extends EA_Model
     {
         // If a template ID is provided then check whether the record really exists in the database.
         if (!empty($template['id'])) {
-            $count = $this->db->get_where('whatsapp_templates', ['id' => $template['id']])->num_rows();
+            $count = $this->db->get_where('ea_whatsapp_templates', ['id' => $template['id']])->num_rows();
 
             if (!$count) {
                 throw new InvalidArgumentException(
@@ -108,7 +108,7 @@ class Whatsapp_templates_model extends EA_Model
         $template['create_datetime'] = date('Y-m-d H:i:s');
         $template['update_datetime'] = date('Y-m-d H:i:s');
 
-        if (!$this->db->insert('whatsapp_templates', $template)) {
+        if (!$this->db->insert('ea_whatsapp_templates', $template)) {
             throw new RuntimeException('Could not insert WhatsApp template to the database.');
         }
 
@@ -128,7 +128,7 @@ class Whatsapp_templates_model extends EA_Model
     {
         $template['update_datetime'] = date('Y-m-d H:i:s');
 
-        if (!$this->db->update('whatsapp_templates', $template, ['id' => $template['id']])) {
+        if (!$this->db->update('ea_whatsapp_templates', $template, ['id' => $template['id']])) {
             throw new RuntimeException('Could not update WhatsApp template in the database.');
         }
 
@@ -150,7 +150,7 @@ class Whatsapp_templates_model extends EA_Model
             throw new InvalidArgumentException('The template ID argument is required.');
         }
 
-        $template = $this->db->get_where('whatsapp_templates', ['id' => $template_id])->row_array();
+        $template = $this->db->get_where('ea_whatsapp_templates', ['id' => $template_id])->row_array();
 
         if (!$template) {
             throw new InvalidArgumentException('The provided template ID was not found in the database: ' . $template_id);
@@ -181,11 +181,11 @@ class Whatsapp_templates_model extends EA_Model
             throw new InvalidArgumentException('The template ID argument is required.');
         }
 
-        if ($this->db->get_where('whatsapp_templates', ['id' => $template_id])->num_rows() == 0) {
+        if ($this->db->get_where('ea_whatsapp_templates', ['id' => $template_id])->num_rows() == 0) {
             throw new InvalidArgumentException('The provided template ID was not found in the database: ' . $template_id);
         }
 
-        $row = $this->db->get_where('whatsapp_templates', ['id' => $template_id])->row_array();
+        $row = $this->db->get_where('ea_whatsapp_templates', ['id' => $template_id])->row_array();
 
         if (!isset($row[$field])) {
             throw new InvalidArgumentException('The requested field was not found in the database: ' . $field);
@@ -216,7 +216,7 @@ class Whatsapp_templates_model extends EA_Model
             $this->db->order_by($this->quote_order_by($order_by));
         }
 
-        $templates = $this->db->get('whatsapp_templates', $limit, $offset)->result_array();
+        $templates = $this->db->get('ea_whatsapp_templates', $limit, $offset)->result_array();
 
         foreach ($templates as &$template) {
             $this->cast($template);
@@ -238,13 +238,13 @@ class Whatsapp_templates_model extends EA_Model
             throw new InvalidArgumentException('The template ID argument is required.');
         }
 
-        $count = $this->db->get_where('whatsapp_templates', ['id' => $template_id])->num_rows();
+        $count = $this->db->get_where('ea_whatsapp_templates', ['id' => $template_id])->num_rows();
 
         if (!$count) {
             throw new InvalidArgumentException('The provided template ID was not found in the database: ' . $template_id);
         }
 
-        $this->db->delete('whatsapp_templates', ['id' => $template_id]);
+        $this->db->delete('ea_whatsapp_templates', ['id' => $template_id]);
     }
 
     /**
@@ -300,7 +300,7 @@ class Whatsapp_templates_model extends EA_Model
     {
         $this->db->select('DISTINCT status_key');
         $this->db->where('enabled', 1);
-        $result = $this->db->get('whatsapp_templates')->result_array();
+        $result = $this->db->get('ea_whatsapp_templates')->result_array();
 
         return array_column($result, 'status_key');
     }

@@ -384,6 +384,7 @@ $(document).ready(function() {
                     if (ss.host !== undefined) $('#whatsapp-host').val(ss.host);
                     if (ss.port !== undefined) $('#whatsapp-port').val(ss.port);
                     if (ss.session !== undefined) $('#whatsapp-session').val(ss.session);
+                    if (ss.enabled !== undefined) $('#whatsapp-enabled').prop('checked', ss.enabled == 1 || ss.enabled === true);
                 }
 
                 // Single status check after successful save
@@ -1078,12 +1079,17 @@ $(document).ready(function() {
         $('#template-form')[0].reset();
 
         if (template) {
+            // Editing existing template - set all fields
             $('#template-id').val(template.id);
             $('#template-name').val(template.name);
             // Do not set status here synchronously; we'll pass it to loadStatuses so it remains selected
             $('#template-language').val(template.language || 'pt-BR');
             $('#template-enabled').prop('checked', template.enabled);
             $('#template-body').val(template.body);
+        } else {
+            // Creating new template - explicitly clear the ID field
+            $('#template-id').val('');
+            $('#template-enabled').prop('checked', true); // Default to enabled for new templates
         }
 
         // Load statuses (pass selected status so select keeps value) and placeholders

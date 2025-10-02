@@ -136,6 +136,11 @@ function vendor(done) {
     // fullcalendar
     gulp.src(['node_modules/fullcalendar/index.global.min.js']).pipe(gulp.dest('assets/vendor/fullcalendar'));
 
+    // fullcalendar-locales
+    gulp.src(['node_modules/@fullcalendar/core/locales/*.global.min.js']).pipe(
+        gulp.dest('assets/vendor/fullcalendar/locales'),
+    );
+
     // fullcalendar-moment
     gulp.src(['node_modules/@fullcalendar/moment/index.global.min.js']).pipe(
         gulp.dest('assets/vendor/fullcalendar-moment'),

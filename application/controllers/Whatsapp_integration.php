@@ -181,8 +181,8 @@ class Whatsapp_integration extends EA_Controller
             // Return routines with template name joined for better UI display
             $this->load->model('rotinas_whatsapp_model');
 
-            $tb_r = $this->db->dbprefix('rotinas_whatsapp');
-            $tb_t = $this->db->dbprefix('whatsapp_templates');
+            $tb_r = 'ea_rotinas_whatsapp';
+            $tb_t = 'ea_whatsapp_templates';
 
             $rows = $this->db
                 ->select("{$tb_r}.*, {$tb_t}.name as template_name")
@@ -236,24 +236,24 @@ class Whatsapp_integration extends EA_Controller
             // insert/update using db directly for simplicity (use table without hardcoded prefix)
             if (!empty($data['id'])) {
                 // prevent duplicate name
-                $exists = $this->db->where('name', $data['name'])->where('id !=', $data['id'])->get($this->db->dbprefix('rotinas_whatsapp'))->num_rows();
+                $exists = $this->db->where('name', $data['name'])->where('id !=', $data['id'])->get('ea_rotinas_whatsapp')->num_rows();
                 if ($exists) {
                     json_response(['success' => false, 'message' => 'Routine name already exists'], 400);
                     return;
                 }
 
                 $this->db->where('id', $data['id']);
-                $this->db->update('rotinas_whatsapp', $data);
+                $this->db->update('ea_rotinas_whatsapp', $data);
                 $id = $data['id'];
             } else {
                 // prevent duplicate name
-                $exists = $this->db->where('name', $data['name'])->get($this->db->dbprefix('rotinas_whatsapp'))->num_rows();
+                $exists = $this->db->where('name', $data['name'])->get('ea_rotinas_whatsapp')->num_rows();
                 if ($exists) {
                     json_response(['success' => false, 'message' => 'Routine name already exists'], 400);
                     return;
                 }
 
-                $this->db->insert('rotinas_whatsapp', $data);
+                $this->db->insert('ea_rotinas_whatsapp', $data);
                 $id = $this->db->insert_id();
             }
 
@@ -280,7 +280,7 @@ class Whatsapp_integration extends EA_Controller
                 return;
             }
 
-            $this->db->where('id', $id)->delete('rotinas_whatsapp');
+            $this->db->where('id', $id)->delete('ea_rotinas_whatsapp');
             json_response(['success' => true, 'message' => 'Routine deleted']);
 
         } catch (Throwable $e) {
@@ -308,7 +308,7 @@ class Whatsapp_integration extends EA_Controller
             $this->load->library('whatsapp_sender');
             $this->load->library('whatsapp_routine_logger');
 
-            $routine = $this->db->get_where('rotinas_whatsapp', ['id' => $id])->row_array();
+            $routine = $this->db->get_where('ea_rotinas_whatsapp', ['id' => $id])->row_array();
             if (!$routine) {
                 json_response(['success' => false, 'message' => 'Routine not found'], 404);
                 return;
@@ -417,16 +417,27 @@ class Whatsapp_integration extends EA_Controller
                 } elseif ($name === 'port') {
                     // ignore; port is deprecated in favor of host:port or full URL
                     continue;
+                } elseif ($name === 'enabled') {
+                    // Handle enabled checkbox (convert to int)
+                    $settings_data['enabled'] = !empty($value) && ($value === '1' || $value === 1 || $value === true || $value === 'true') ? 1 : 0;
                 } else {
                     $settings_data[$name] = $value;
                 }
             }
 
-            // Auto-enable when required fields present (port handled inside host)
+            // Validate required fields are present before allowing enable
             $hostVal = (string)($settings_data['host'] ?? '');
             $requiredOk = !empty($hostVal) && !empty($settings_data['session']) && !empty($settings_data['secret_key']);
             $all_filled = $requiredOk;
-            $settings_data['enabled'] = $all_filled ? 1 : 0;
+            
+            // Only allow enabled if all required fields are filled
+            if (!empty($settings_data['enabled']) && !$all_filled) {
+                json_response([
+                    'success' => false,
+                    'message' => 'Não é possível habilitar a integração sem preencher todos os campos obrigatórios (host, session, secret_key).',
+                ], 400);
+                return;
+            }
 
             // Ensure we have the ID for update
             if (!empty($current)) {
@@ -538,9 +549,8 @@ class Whatsapp_integration extends EA_Controller
             // can update immediately without requiring a full page refresh. Do NOT expose token or masked token.
             $saved_settings = [
                 'host' => $settings_data['host'] ?? null,
-                'port' => $settings_data['port'] ?? null,
                 'session' => $settings_data['session'] ?? null,
-                'enabled' => isset($settings_data['enabled']) ? (int)$settings_data['enabled'] : 0,
+                'enabled' => !empty($settings_data['enabled']) ? 1 : 0,
             ];
 
             json_response([
@@ -660,7 +670,7 @@ class Whatsapp_integration extends EA_Controller
                     
                     // Update only the encrypted fields in the database
                     $this->db->where('id', $current['id']);
-                    $this->db->update('whatsapp_integration_settings', [
+                    $this->db->update('ea_whatsapp_integration_settings', [
                         'token_enc' => $update_data['token_enc'] ?? null,
                         'secret_key_enc' => $update_data['secret_key_enc'] ?? null,
                         'update_datetime' => date('Y-m-d H:i:s'),
@@ -1233,7 +1243,7 @@ class Whatsapp_integration extends EA_Controller
             $count = $this->db->where('user_id', $user_id)
                                       ->where('action', 'reveal')
                                       ->where('created_at >=', $one_hour_ago)
-                                      ->count_all_results('whatsapp_token_reveal_logs');
+                                      ->count_all_results('ea_whatsapp_token_reveal_logs');
                     if ($count >= 3) {
                         $limitExceeded = true;
                     }
@@ -1348,7 +1358,7 @@ class Whatsapp_integration extends EA_Controller
     private function log_token_action($user_id, $role_slug, string $action, string $status): void
     {
         try {
-            $this->db->insert('whatsapp_token_reveal_logs', [
+            $this->db->insert('ea_whatsapp_token_reveal_logs', [
                 'user_id' => $user_id,
                 'role_slug' => $role_slug,
                 'action' => $action,

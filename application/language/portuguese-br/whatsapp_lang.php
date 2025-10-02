@@ -32,6 +32,7 @@ $lang['sent'] = 'enviado';
 
 // Configuração
 $lang['whatsapp_configuration'] = 'Configuração';
+$lang['whatsapp_integration_enabled'] = 'Habilitar Integração WhatsApp';
 $lang['whatsapp_host'] = 'URL';
 $lang['whatsapp_host_hint'] = 'Ex.: http://localhost:21465 | 127.0.0.1:21465 | https://seu-dominio';
 // Porta removida: campo não é mais exibido

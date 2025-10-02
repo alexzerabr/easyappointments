@@ -132,6 +132,7 @@
 <?php section('scripts'); ?>
 
 <script src="<?= asset_url('assets/vendor/fullcalendar/index.global.min.js') ?>"></script>
+<script src="<?= asset_url('assets/vendor/fullcalendar/locales/pt-br.global.min.js') ?>"></script>
 <script src="<?= asset_url('assets/vendor/fullcalendar-moment/index.global.min.js') ?>"></script>
 <script src="<?= asset_url('assets/vendor/jquery-jeditable/jquery.jeditable.min.js') ?>"></script>
 <script src="<?= asset_url('assets/js/utils/ui.js') ?>"></script>

@@ -50,6 +50,13 @@ echo "🏗️  Iniciando build multi-platform..."
 echo "⏱️  Este processo levará ~45-60 minutos..."
 echo ""
 
+# Limpa e cria novo log com data/hora
+LOG_FILE="/tmp/build-production.log"
+echo "📝 Log: $LOG_FILE"
+echo "🕐 Iniciado em: $(date '+%Y-%m-%d %H:%M:%S')" > "$LOG_FILE"
+echo "=============================================" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+
 time docker buildx build \
     --platform linux/amd64,linux/arm64 \
     --file "$DOCKERFILE" \
@@ -59,10 +66,12 @@ time docker buildx build \
     --tag "$REGISTRY/$NAMESPACE/$IMAGE_NAME:latest-arm64" \
     --progress=plain \
     --push \
-    .
+    . 2>&1 | tee -a "$LOG_FILE"
 
 echo ""
-echo "✅ Build multi-platform concluído!"
+echo "🕐 Finalizado em: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$LOG_FILE"
+echo "✅ Build multi-platform concluído!" | tee -a "$LOG_FILE"
+echo "📝 Log completo salvo em: $LOG_FILE"
 echo ""
 echo "🏷️  Tags criadas:"
 echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest (multi-arch)"

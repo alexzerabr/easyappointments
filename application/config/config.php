@@ -117,6 +117,7 @@ $languages = [
     'no' => 'norwegian',
     'pl' => 'polish',
     'pt' => 'portuguese',
+    'pt-br' => 'portuguese-br',
     'ro' => 'romanian',
     'rs' => 'serbian',
     'ru' => 'russian',
