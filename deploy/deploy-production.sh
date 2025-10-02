@@ -621,17 +621,7 @@ update_production() {
     
     test_database_connectivity
 
-    log "INFO" "Rebuilding frontend assets (npm install + gulp)..."
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T php-fpm bash -c '
-        cd /var/www/html
-        npm install --no-audit 2>&1 | grep -v "npm notice" || true
-        npm list gulp >/dev/null 2>&1 || npm install gulp --no-audit
-        npx gulp vendor 2>&1 | grep -E "Starting|Finished|ERROR" || true
-        npx gulp scripts 2>&1 | grep -E "Starting|Finished|ERROR" || true
-        npx gulp styles 2>&1 | grep -E "Starting|Finished|ERROR" || true
-    ' || log "WARN" "Asset rebuild had warnings (check logs)"
-    
-    log "SUCCESS" "Frontend assets rebuilt successfully"
+    log "INFO" "Frontend assets are pre-compiled in Docker image (skipping rebuild)"
 
     log "INFO" "Setting storage permissions..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T --user root php-fpm bash -c '
