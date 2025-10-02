@@ -640,6 +640,7 @@ update_production() {
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T php-fpm bash -c '
         cd /var/www/html
         npm install --no-audit 2>&1 | grep -v "npm notice" || true
+        npm list gulp >/dev/null 2>&1 || npm install gulp --no-audit
         npx gulp vendor 2>&1 | grep -E "Starting|Finished|ERROR" || true
         npx gulp scripts 2>&1 | grep -E "Starting|Finished|ERROR" || true
         npx gulp styles 2>&1 | grep -E "Starting|Finished|ERROR" || true
