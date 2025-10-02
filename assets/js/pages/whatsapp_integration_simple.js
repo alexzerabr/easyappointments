@@ -27,15 +27,29 @@ $(document).ready(function() {
         serverSettings.forEach(function(setting) {
             if (setting.name === 'host') host = setting.value;
             if (setting.name === 'session') session = setting.value;
-            if (setting.name === 'enabled') enabled = (setting.value == 1 || setting.value === '1' || setting.value === true);
+            if (setting.name === 'enabled') {
+                // More robust conversion: handle string '1', number 1, boolean true, and string 'true'
+                const val = setting.value;
+                enabled = (val === 1 || val === '1' || val === true || val === 'true' || val === 'on');
+                console.log('Enabled value from server:', val, '(type:', typeof val, ') converted to:', enabled);
+            }
         });
         
-        // Override with localStorage if available (for host and session only)
+        // Override with localStorage if available
         const localHost = localStorage.getItem(STORAGE_KEYS.HOST);
         const localSession = localStorage.getItem(STORAGE_KEYS.SESSION);
+        const localEnabled = localStorage.getItem('whatsapp_enabled');
         
         if (localHost) host = localHost;
         if (localSession) session = localSession;
+        // If enabled wasn't in server settings but is in localStorage, use localStorage value
+        if (localEnabled !== null && serverSettings.length > 0) {
+            const hasEnabledFromServer = serverSettings.some(s => s.name === 'enabled');
+            if (!hasEnabledFromServer) {
+                enabled = (localEnabled === '1' || localEnabled === 'true' || localEnabled === '1' || localEnabled === true);
+                console.log('Using enabled from localStorage:', localEnabled, 'converted to:', enabled);
+            }
+        }
         
         // Apply to form
         if (host) $('#whatsapp-host').val(host);
@@ -165,6 +179,10 @@ $(document).ready(function() {
                     break;
                 case 'session':
                     localStorage.setItem(STORAGE_KEYS.SESSION, setting.value);
+                    break;
+                case 'enabled':
+                    // Save enabled status to localStorage so it persists across tabs
+                    localStorage.setItem('whatsapp_enabled', setting.value);
                     break;
             }
         });
@@ -396,10 +414,21 @@ $(document).ready(function() {
                 // If server returned saved settings, update inputs to reflect canonical values
                 if (response.saved_settings) {
                     const ss = response.saved_settings;
-                    if (ss.host !== undefined) $('#whatsapp-host').val(ss.host);
+                    if (ss.host !== undefined) {
+                        $('#whatsapp-host').val(ss.host);
+                        localStorage.setItem(STORAGE_KEYS.HOST, ss.host);
+                    }
                     if (ss.port !== undefined) $('#whatsapp-port').val(ss.port);
-                    if (ss.session !== undefined) $('#whatsapp-session').val(ss.session);
-                    if (ss.enabled !== undefined) $('#whatsapp-enabled').prop('checked', ss.enabled == 1 || ss.enabled === true);
+                    if (ss.session !== undefined) {
+                        $('#whatsapp-session').val(ss.session);
+                        localStorage.setItem(STORAGE_KEYS.SESSION, ss.session);
+                    }
+                    if (ss.enabled !== undefined) {
+                        const enabledBool = (ss.enabled == 1 || ss.enabled === true || ss.enabled === '1');
+                        $('#whatsapp-enabled').prop('checked', enabledBool);
+                        localStorage.setItem('whatsapp_enabled', enabledBool ? '1' : '0');
+                        console.log('Updated enabled checkbox and localStorage after save:', enabledBool);
+                    }
                 }
 
                 // Single status check after successful save
