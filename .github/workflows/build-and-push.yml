@@ -4,14 +4,15 @@ on:
   push:
     branches:
       - main
-      - master
-      - whatsapp-integration
     tags:
       - 'v*'
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.gitignore'
+      - '.dockerignore'
+      - 'README*.md'
+      - 'CHANGELOG.md'
   workflow_dispatch:
     inputs:
       version_tag:
@@ -71,6 +72,8 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=arm64-latest,enable={{is_default_branch}}
+            type=raw,value=latest-arm64,enable={{is_default_branch}}
             type=raw,value=${{ inputs.version_tag || 'v1.0.0.0' }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push Docker image
