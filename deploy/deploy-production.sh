@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="2.1"
+SCRIPT_VERSION="2.2"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="docker-compose.prod.yml"
@@ -11,7 +11,6 @@ ENV_EXAMPLE="env.production-example"
 BACKUP_DIR="storage/backups"
 LOG_FILE="/tmp/deploy-production.log"
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -23,19 +22,15 @@ NC='\033[0m'
 
 cd "$ROOT_DIR"
 
-# Logging function
 log() {
     local level="$1"
     shift
     local message="$*"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     
-    # Ensure log directory exists
     mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
-    
     echo "[$timestamp] [$level] $message" >> "$LOG_FILE" 2>/dev/null || true
     
-    # Output to console with colors
     case "$level" in
         "ERROR")   echo -e "${RED}❌ ERROR: $message${NC}" ;;
         "WARN")    echo -e "${YELLOW}⚠️  WARNING: $message${NC}" ;;
@@ -46,22 +41,19 @@ log() {
     esac
 }
 
-# Error handling
 error_exit() {
     log "ERROR" "$1"
     exit 1
 }
 
-# Header
 print_header() {
     echo -e "${CYAN}"
     echo "============================================="
-    echo "🚀 Easy!Appointments Production Manager v${SCRIPT_VERSION}"
+    echo "Production Manager v${SCRIPT_VERSION}"
     echo "============================================="
     echo -e "${NC}"
 }
 
-# Validate environment
 validate_environment() {
     log "INFO" "Validating environment..."
     
@@ -84,13 +76,11 @@ validate_environment() {
     log "SUCCESS" "Environment validation passed"
 }
 
-# Generate secure random password
 generate_password() {
     local length="${1:-32}"
     openssl rand -base64 $length | tr -d "=+/" | cut -c1-$length
 }
 
-# Generate secure encryption key
 generate_encryption_key() {
     openssl rand -hex 32
 }
@@ -122,7 +112,6 @@ customize_environment() {
     log "SUCCESS" "Environment customization completed"
 }
 
-# Setup environment file with auto-generated credentials
 setup_environment() {
     local action="${1:-}"
     if [ ! -f "$ENV_FILE" ]; then
@@ -131,23 +120,19 @@ setup_environment() {
         if [ -f "$ENV_EXAMPLE" ]; then
             log "INFO" "Creating production environment with auto-generated credentials..."
             
-            # Generate secure credentials
             local db_password=$(generate_password 24)
             local mysql_root_password=$(generate_password 24)
             local wa_token_enc_key=$(generate_encryption_key)
             local backup_encryption_key=$(generate_encryption_key)
             
-            # Copy example file
             cp "$ENV_EXAMPLE" "$ENV_FILE"
             
-            # Replace placeholder values with generated ones
             sed -i "s/CHANGE_THIS_STRONG_PASSWORD/$db_password/g" "$ENV_FILE"
             sed -i "s/CHANGE_THIS_ROOT_PASSWORD/$mysql_root_password/g" "$ENV_FILE"
             sed -i "s/CHANGE_THIS_GENERATE_NEW_KEY_WITH_OPENSSL/$wa_token_enc_key/g" "$ENV_FILE"
             sed -i "s/CHANGE_THIS_BACKUP_KEY/$backup_encryption_key/g" "$ENV_FILE"
             sed -i "s/your-encryption-key-here/$wa_token_enc_key/g" "$ENV_FILE"
             
-            # Set default production values
             sed -i "s/APP_URL=.*/APP_URL=http:\/\/localhost/g" "$ENV_FILE"
             sed -i "s/HTTP_PORT=.*/HTTP_PORT=80/g" "$ENV_FILE"
             sed -i "s/HTTPS_PORT=.*/HTTPS_PORT=443/g" "$ENV_FILE"
@@ -162,7 +147,6 @@ setup_environment() {
             echo -e "${BLUE}  💾 Backup Encryption Key: ${WHITE}$backup_encryption_key${NC}"
             echo ""
             
-            # Offer customization only during --start
             if [ "$action" = "start" ]; then
                 read -p "Do you want to customize APP_URL and ports (HTTP/HTTPS)? (y/N): " -n 1 -r
                 echo
@@ -176,7 +160,6 @@ setup_environment() {
     else
         log "INFO" "Using existing production environment file"
         
-        # Validate required variables
         if ! grep -q "DB_PASSWORD=" "$ENV_FILE" || ! grep -q "MYSQL_ROOT_PASSWORD=" "$ENV_FILE"; then
             log "WARN" "Environment file exists but may be missing required credentials"
             read -p "Do you want to regenerate credentials? (y/N): " -n 1 -r
@@ -191,7 +174,6 @@ setup_environment() {
             fi
         fi
 
-        # Offer customization only during --start
         if [ "$action" = "start" ]; then
             echo
             read -p "Do you want to customize APP_URL and ports (HTTP/HTTPS)? (y/N): " -n 1 -r
@@ -202,13 +184,11 @@ setup_environment() {
         fi
     fi
     
-    # Load environment variables
     log "INFO" "Loading environment variables..."
     set -a
     source "$ENV_FILE"
     set +a
     
-    # Validate required variables
     local required_vars=("WA_TOKEN_ENC_KEY" "DB_PASSWORD" "MYSQL_ROOT_PASSWORD")
     for var in "${required_vars[@]}"; do
         if [ -z "${!var:-}" ]; then
@@ -251,55 +231,18 @@ setup_config() {
         log "WARN" "Placeholder values still found in config.php, applying manual fix..."
         cat > config.php << EOF
 <?php
-/* ----------------------------------------------------------------------------
- * Easy!Appointments - Online Appointment Scheduler
- *
- * @package     EasyAppointments
- * @author      A.Tselegidis <alextselegidis@gmail.com>
- * @copyright   Copyright (c) Alex Tselegidis
- * @license     https://opensource.org/licenses/GPL-3.0 - GPLv3
- * @link        https://easyappointments.org
- * @since       v1.0.0
- * ---------------------------------------------------------------------------- */
-
-/**
- * Easy!Appointments Configuration File
- *
- * Set your installation BASE_URL * without the trailing slash * and the database
- * credentials in order to connect to the database. You can enable the DEBUG_MODE
- * while developing the application.
- *
- * Set the default language by changing the LANGUAGE constant. For a full list of
- * available languages look at the /application/config/config.php file.
- *
- * IMPORTANT:
- * If you are updating from version 1.0 you will have to create a new "config.php"
- * file because the old "configuration.php" is not used anymore.
- */
 class Config
 {
-    // ------------------------------------------------------------------------
-    // GENERAL SETTINGS
-    // ------------------------------------------------------------------------
-
     const BASE_URL = '${app_url}';
     const LANGUAGE = '${APP_LANGUAGE:-english}';
     const DEBUG_MODE = false;
-
-    // ------------------------------------------------------------------------
-    // DATABASE SETTINGS
-    // ------------------------------------------------------------------------
 
     const DB_HOST = '${DB_HOST:-mysql}';
     const DB_NAME = '${DB_DATABASE:-easyappointments}';
     const DB_USERNAME = '${DB_USERNAME:-easyapp_user}';
     const DB_PASSWORD = '${DB_PASSWORD}';
 
-    // ------------------------------------------------------------------------
-    // GOOGLE CALENDAR SYNC
-    // ------------------------------------------------------------------------
-
-    const GOOGLE_SYNC_FEATURE = false; // Enter TRUE or FALSE
+    const GOOGLE_SYNC_FEATURE = false;
     const GOOGLE_CLIENT_ID = '';
     const GOOGLE_CLIENT_SECRET = '';
 }
@@ -393,7 +336,6 @@ initialize_production() {
     log "INFO" "Waiting for services to initialize..."
     sleep 30
 
-    # Set permissions
     log "INFO" "Setting storage permissions..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T --user root php-fpm bash -c '
         chown -R appuser:appuser /var/www/html/storage/sessions /var/www/html/storage/cache /var/www/html/storage/uploads 2>/dev/null || true
@@ -410,7 +352,6 @@ initialize_production() {
         log "ERROR" "config.php not found in container"
     fi
     
-    # Test application response
     local max_attempts=10
     local attempt=1
     
@@ -429,8 +370,6 @@ initialize_production() {
         ((attempt++))
     done
     
-    # Print deployed image version
-    log "INFO" "Checking deployed image version..."
     local image_info=$(docker image inspect "$image_name" --format '{{.Created}} {{.Config.Labels}}' 2>/dev/null || echo "Unable to inspect image")
     log "INFO" "Deployed image info: $image_info"
     
@@ -478,19 +417,8 @@ initialize_production() {
     log "SUCCESS" "Production deployment completed - environment is 100% ready!"
 }
 
-# Start production environment (without full initialization)
 start_production() {
     log "INFO" "Starting production environment..."
-    
-    if ! docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q 2>/dev/null | grep -q .; then
-        log "WARN" "No existing containers found. Use --initialize for fresh setup."
-        read -p "Start anyway? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            log "INFO" "Operation cancelled by user"
-            exit 0
-        fi
-    fi
     
     log "INFO" "Starting all services..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
@@ -505,11 +433,9 @@ start_production() {
     log "SUCCESS" "Production environment started successfully"
 }
 
-# Stop production environment
 stop_production() {
     log "INFO" "Stopping production environment..."
     
-    # Check if containers are running
     if ! docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q &>/dev/null; then
         log "WARN" "No containers found or Docker Compose not available"
         return 1
@@ -528,21 +454,18 @@ stop_production() {
     
     echo -e "\n${YELLOW}🛑 Stopping production environment...${NC}"
     
-    # Stop all services gracefully
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" stop
     
     echo -e "\n${GREEN}✅ Production environment stopped successfully!${NC}"
     log "SUCCESS" "Production stop completed"
 }
 
-# Reset production environment
 reset_production() {
     echo -e "${RED}⚠️  DANGER: Production Environment Reset${NC}"
     echo "============================================="
     echo -e "${YELLOW}WARNING: This will permanently delete ALL production data!${NC}"
     echo ""
     
-    # Confirmation
     read -p "Are you ABSOLUTELY sure you want to continue? Type 'DESTROY' to confirm: " confirm
     
     if [ "$confirm" != "DESTROY" ]; then
@@ -552,14 +475,11 @@ reset_production() {
     
     log "WARN" "Starting production environment destruction..."
     
-    # Stop and remove containers with volumes
     log "INFO" "Removing containers and volumes..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans --volumes --timeout 30 || true
     
-    # Remove ALL production images (more comprehensive)
     log "INFO" "Removing ALL production images..."
     
-    # Remove specific Easy!Appointments images by repository name
     docker images --format "table {{.Repository}}:{{.Tag}}" | grep -i easyappointments | while read -r image; do
         if [ -n "$image" ] && [ "$image" != "REPOSITORY:TAG" ]; then
             log "INFO" "Removing image: $image"
@@ -567,10 +487,8 @@ reset_production() {
         fi
     done
     
-    # Fallback: Remove by pattern (for any remaining)
     docker images -q | xargs -r docker inspect --format='{{.RepoTags}}' | grep -l easyappointments | xargs -r docker rmi -f || true
     
-    # Clean storage directories
     log "INFO" "Cleaning storage directories..."
     find storage/logs -name "*.log" -delete 2>/dev/null || true
     find storage/cache -type f ! -name ".htaccess" ! -name "index.html" -delete 2>/dev/null || true
@@ -586,32 +504,25 @@ reset_production() {
         log "INFO" "Removed $ENV_FILE for clean reset"
     fi
     
-    # COMPREHENSIVE Docker cleanup - remove EVERYTHING
     log "INFO" "Performing comprehensive Docker cleanup..."
     log "WARN" "This will remove ALL unused Docker resources (images, containers, volumes, networks)"
     
-    # Complete system cleanup including volumes
     docker system prune -af --volumes >/dev/null 2>&1 || true
-    
-    # Additional cleanup for any remaining build cache
     docker builder prune -af >/dev/null 2>&1 || true
     
     echo -e "\n${GREEN}🎯 Production environment reset completed!${NC}"
     log "SUCCESS" "Production reset completed"
 }
 
-# Backup production environment
 backup_production() {
     log "INFO" "Starting production backup..."
     
-    # Setup backup directory
     local backup_timestamp=$(date '+%Y%m%d_%H%M%S')
     local backup_path="$BACKUP_DIR/backup_$backup_timestamp"
     mkdir -p "$backup_path"
     
     log "INFO" "Creating backup at: $backup_path"
     
-    # Backup database
     log "INFO" "Backing up database..."
     if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T mysql mysqldump \
         -u root -p"${MYSQL_ROOT_PASSWORD}" \
@@ -622,14 +533,12 @@ backup_production() {
         log "ERROR" "Database backup failed"
     fi
     
-    # Backup storage
     log "INFO" "Backing up storage files..."
     if [ -d "storage" ]; then
         tar -czf "$backup_path/storage.tar.gz" storage/ 2>/dev/null || true
         log "SUCCESS" "Storage backup completed"
     fi
     
-    # Backup configuration
     cp "$ENV_FILE" "$backup_path/env.production" 2>/dev/null || true
     cp "$COMPOSE_FILE" "$backup_path/" 2>/dev/null || true
     
@@ -638,7 +547,6 @@ backup_production() {
     log "SUCCESS" "Backup completed: $backup_path"
 }
 
-# monitoring health checks
 monitor_production() {
     log "INFO" "Monitoring production environment..."
     
@@ -647,7 +555,6 @@ monitor_production() {
     echo -e "${BLUE}🔍 Production Environment Health Check${NC}"
     echo "============================================="
     
-    # Check container status
     echo -e "\n${CYAN}Container Status${NC}"
     if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q &>/dev/null; then
         docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
@@ -666,11 +573,9 @@ monitor_production() {
         exit_code=1
     fi
     
-    # Check application health
     echo -e "\n${CYAN}Application Health${NC}"
     local http_port="${HTTP_PORT:-80}"
     
-    # Test installation page
     local install_status=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "http://localhost:$http_port/index.php/installation" 2>/dev/null || echo "000")
     if [ "$install_status" = "200" ]; then
         echo -e "${GREEN}✅ Installation page is accessible (HTTP $install_status)${NC}"
@@ -679,7 +584,6 @@ monitor_production() {
         exit_code=1
     fi
     
-    # Test main application
     local app_status=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "http://localhost:$http_port/" 2>/dev/null || echo "000")
     if [[ "$app_status" =~ ^(200|30[0-9])$ ]]; then
         echo -e "${GREEN}✅ Main application is responding (HTTP $app_status)${NC}"
@@ -688,7 +592,6 @@ monitor_production() {
         exit_code=1
     fi
     
-    # Check database connectivity
     echo -e "\n${CYAN}Database Connectivity${NC}"
     if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T mysql mysqladmin ping -h localhost -u root -p"${MYSQL_ROOT_PASSWORD}" &>/dev/null; then
         echo -e "${GREEN}✅ Database is accessible${NC}"
@@ -712,35 +615,38 @@ monitor_production() {
 update_production() {
     log "INFO" "Updating production environment..."
 
-    local refresh_assets="${1:-}"
-
-    # Pull latest images
-    log "INFO" "Pulling latest images for all services..."
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull || true
-
-    # Stop and remove containers (keep volumes)
-    log "INFO" "Stopping and removing current containers (keeping volumes)..."
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans || true
-
-    if [ "$refresh_assets" = "--refresh-assets" ]; then
-        log "WARN" "Refreshing assets volume 'app_assets'..."
-        local project_name
-        project_name=$(basename "$ROOT_DIR" | tr -cd '[:alnum:]_-' )
-        local volume_name="${project_name}_app_assets"
-        if ! docker volume inspect "$volume_name" >/dev/null 2>&1; then
-            volume_name="easyappointments_app_assets"
-        fi
-        docker volume rm "$volume_name" >/dev/null 2>&1 || true
+    log "INFO" "Pulling latest code from repository..."
+    if [ -d ".git" ]; then
+        git pull origin main || log "WARN" "Git pull failed or not available"
+    else
+        log "WARN" "Not a git repository, skipping git pull"
     fi
 
-    # Recreate services
-    log "INFO" "Recreating services with latest images..."
+    log "INFO" "Pulling latest Docker images..."
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull || true
+
+    log "INFO" "Stopping containers..."
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans || true
+
+    log "INFO" "Starting services with updated images..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
 
-    # Health checks
+    log "INFO" "Waiting for services to be ready..."
+    sleep 15
+    
     test_database_connectivity
 
-    # Permissions fix
+    log "INFO" "Rebuilding frontend assets (npm install + gulp)..."
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T php-fpm bash -c '
+        cd /var/www/html
+        npm install --no-audit 2>&1 | grep -v "npm notice" || true
+        npx gulp vendor 2>&1 | grep -E "Starting|Finished|ERROR" || true
+        npx gulp scripts 2>&1 | grep -E "Starting|Finished|ERROR" || true
+        npx gulp styles 2>&1 | grep -E "Starting|Finished|ERROR" || true
+    ' || log "WARN" "Asset rebuild had warnings (check logs)"
+    
+    log "SUCCESS" "Frontend assets rebuilt successfully"
+
     log "INFO" "Setting storage permissions..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T --user root php-fpm bash -c '
         chown -R appuser:appuser /var/www/html/storage 2>/dev/null || true
@@ -748,7 +654,6 @@ update_production() {
         find /var/www/html/storage -type f -exec chmod 644 {} \; 2>/dev/null || true
     ' || true
 
-    # Run database migrations automatically
     log "INFO" "Running database migrations..."
     if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T php-fpm php patch.php migration latest 2>&1 | tee /tmp/migration.log | grep -qE "completed|patches"; then
         log "SUCCESS" "Migrations completed successfully"
@@ -761,8 +666,7 @@ update_production() {
     fi
     rm -f /tmp/migration.log 2>/dev/null || true
 
-    # Validate app
-    log "INFO" "Validating application response after update..."
+    log "INFO" "Validating application response..."
     local status_code
     status_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${HTTP_PORT:-80}/index.php/installation" || echo 000)
     if [[ "$status_code" =~ ^(200|30[0-9])$ ]]; then
@@ -776,7 +680,6 @@ update_production() {
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
 }
 
-# Show usage
 show_usage() {
     print_header
     echo -e "${WHITE}USAGE:${NC}"
@@ -784,32 +687,23 @@ show_usage() {
     echo ""
     echo -e "${WHITE}OPTIONS:${NC}"
     echo -e "  ${GREEN}--initialize${NC}  Initialize production environment (fresh install)"
-    echo -e "  ${GREEN}--start${NC}       Start production environment (existing setup)"
-    echo -e "  ${YELLOW}--stop${NC}        Stop production environment gracefully"
+    echo -e "  ${GREEN}--start${NC}       Start production environment"
+    echo -e "  ${YELLOW}--stop${NC}        Stop production environment"
     echo -e "  ${RED}--reset${NC}       Reset production environment (DESTRUCTIVE!)"
     echo -e "  ${BLUE}--backup${NC}      Create backup of production data"
     echo -e "  ${PURPLE}--monitor${NC}     Monitor production environment health"
-    echo -e "  ${CYAN}--update${NC}       Pull latest images, recreate containers, and run migrations"
+    echo -e "  ${CYAN}--update${NC}       Pull code, rebuild assets, update containers, run migrations"
     echo -e "  ${CYAN}--help${NC}        Show this help message"
     echo ""
     echo -e "${WHITE}WORKFLOW:${NC}"
     echo -e "  1. First time:  ${GREEN}--initialize${NC}  (setup + config + start)"
-    echo -e "  2. Updates:     ${CYAN}--update${NC}      (pull + restart + migrate)"
+    echo -e "  2. Updates:     ${CYAN}--update${NC}      (git pull + npm + gulp + migrations)"
     echo -e "  3. Daily ops:   ${GREEN}--start${NC} / ${YELLOW}--stop${NC}"
     echo ""
     echo -e "${WHITE}VERSION:${NC} $SCRIPT_VERSION"
-    echo ""
-    echo -e "${WHITE}FEATURES:${NC}"
-    echo -e "  ✅ Auto-generated secure credentials"
-    echo -e "  ✅ Automatic database migrations on update"
-    echo -e "  ✅ Asset and code auto-update"
-    echo -e "  ✅ Health checks and validation"
-    echo -e "  ✅ Docker multi-platform support"
 }
 
-# Main script logic
 main() {
-    # Check arguments
     if [ $# -eq 0 ]; then
         show_usage
         exit 1
@@ -856,7 +750,7 @@ main() {
             print_header
             validate_environment
             setup_environment update
-            update_production "${2:-}"
+            update_production
             ;;
         --help|-h)
             show_usage
@@ -870,5 +764,4 @@ main() {
     esac
 }
 
-# Run main function
 main "$@"

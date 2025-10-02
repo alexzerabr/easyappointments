@@ -119,8 +119,8 @@ class Whatsapp_integration extends EA_Controller
         // Prepare settings for script_vars (serialize format)
         $whatsapp_settings_serialized = [];
         if (!empty($settings)) {
-            // Add basic configuration fields
-            $config_fields = ['host', 'session'];
+            // Add basic configuration fields (including enabled)
+            $config_fields = ['host', 'session', 'enabled'];
             foreach ($config_fields as $field) {
                 if (isset($settings[$field])) {
                     $whatsapp_settings_serialized[] = [
@@ -425,19 +425,9 @@ class Whatsapp_integration extends EA_Controller
                 }
             }
 
-            // Validate required fields are present before allowing enable
+            // Check if all fields are filled (for token generation logic only)
             $hostVal = (string)($settings_data['host'] ?? '');
-            $requiredOk = !empty($hostVal) && !empty($settings_data['session']) && !empty($settings_data['secret_key']);
-            $all_filled = $requiredOk;
-            
-            // Only allow enabled if all required fields are filled
-            if (!empty($settings_data['enabled']) && !$all_filled) {
-                json_response([
-                    'success' => false,
-                    'message' => 'Não é possível habilitar a integração sem preencher todos os campos obrigatórios (host, session, secret_key).',
-                ], 400);
-                return;
-            }
+            $all_filled = !empty($hostVal) && !empty($settings_data['session']) && !empty($settings_data['secret_key']);
 
             // Ensure we have the ID for update
             if (!empty($current)) {

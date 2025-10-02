@@ -13,20 +13,35 @@ $(document).ready(function() {
     	SECRET_KEY: 'whatsapp_secret_key'
     };
 
-    // Initialize settings from localStorage
+    // Initialize settings from localStorage and server
     function initializeSettings() {
-        console.log('Initializing settings from localStorage...');
+        console.log('Initializing settings from server and localStorage...');
         
-        // Restore form values from localStorage
-        const host = localStorage.getItem(STORAGE_KEYS.HOST);
-        const port = null; // deprecated
-        const session = localStorage.getItem(STORAGE_KEYS.SESSION);
-        const secretKey = null; // Do not load secret from localStorage
-        const tokenMasked = null;
-
+        // First, load from server (script_vars)
+        const serverSettings = (typeof vars === 'function' && vars('whatsapp_settings')) || [];
+        let enabled = false;
+        let host = '';
+        let session = '';
+        
+        // Parse server settings
+        serverSettings.forEach(function(setting) {
+            if (setting.name === 'host') host = setting.value;
+            if (setting.name === 'session') session = setting.value;
+            if (setting.name === 'enabled') enabled = (setting.value == 1 || setting.value === '1' || setting.value === true);
+        });
+        
+        // Override with localStorage if available (for host and session only)
+        const localHost = localStorage.getItem(STORAGE_KEYS.HOST);
+        const localSession = localStorage.getItem(STORAGE_KEYS.SESSION);
+        
+        if (localHost) host = localHost;
+        if (localSession) session = localSession;
+        
+        // Apply to form
         if (host) $('#whatsapp-host').val(host);
-        // port field removed
         if (session) $('#whatsapp-session').val(session);
+        $('#whatsapp-enabled').prop('checked', enabled);
+        
         // Never prefill secret key from storage for security
         // Ensure token input is blank on load
         $('#whatsapp-token').val('');
@@ -39,7 +54,7 @@ $(document).ready(function() {
             localStorage.removeItem('whatsapp_port'); // legacy cleanup
         } catch (e) { }
 
-        console.log('Settings restored from localStorage');
+        console.log('Settings restored - enabled:', enabled);
         // Hide spinner by default; status is checked only via Test Connectivity
         try { $('#session-status').find('.spinner-border').hide(); } catch (e) {}
         

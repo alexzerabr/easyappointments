@@ -1,7 +1,8 @@
 # Docker volumes and runtime data
 docker/openldap/slapd/config/
 docker/openldap/slapd/data/
-docker/mysql/data/
+docker/mysql/
+docker/baikal/
 storage/
 
 # Development files
