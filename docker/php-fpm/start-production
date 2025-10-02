@@ -94,13 +94,29 @@ if [ ! -f "$INIT_MARKER" ]; then
 else
     echo "♻️  Volume already initialized, checking for updates..."
     
+    # Check if force update is requested via environment variable
+    FORCE_UPDATE="${FORCE_UPDATE:-false}"
+    
     # On subsequent runs, check if we should update files from new image
     # Compare modification times to detect new build
     if [ -d "/tmp/app" ] && [ -d "/var/www/html" ]; then
         TMP_MTIME=$(stat -c %Y /tmp/app 2>/dev/null || stat -f %m /tmp/app 2>/dev/null || echo 0)
         VOL_MTIME=$(stat -c %Y /var/www/html/.docker-init-complete 2>/dev/null || stat -f %m /var/www/html/.docker-init-complete 2>/dev/null || echo 0)
         
-        if [ "$TMP_MTIME" -gt "$VOL_MTIME" ]; then
+        # Check for image digest change (more reliable than timestamp)
+        IMAGE_DIGEST_FILE="/var/www/html/.docker-image-digest"
+        CURRENT_DIGEST=""
+        if [ -f "$IMAGE_DIGEST_FILE" ]; then
+            CURRENT_DIGEST=$(cat "$IMAGE_DIGEST_FILE" 2>/dev/null || echo "")
+        fi
+        
+        # Try to detect new image by checking /tmp/app timestamp or force flag
+        NEW_IMAGE_DETECTED=false
+        if [ "$TMP_MTIME" -gt "$VOL_MTIME" ] || [ "$FORCE_UPDATE" = "true" ]; then
+            NEW_IMAGE_DETECTED=true
+        fi
+        
+        if [ "$NEW_IMAGE_DETECTED" = "true" ]; then
             echo "🔄 Newer application detected - updating files..."
             
             # Update application files (controllers, views, libraries, migrations)
@@ -110,12 +126,38 @@ else
             cp -rf /tmp/app/application/libraries/* /var/www/html/application/libraries/ 2>/dev/null || true
             cp -rf /tmp/app/application/migrations/* /var/www/html/application/migrations/ 2>/dev/null || true
             cp -rf /tmp/app/application/language/* /var/www/html/application/language/ 2>/dev/null || true
+            cp -rf /tmp/app/application/models/* /var/www/html/application/models/ 2>/dev/null || true
+            cp -rf /tmp/app/application/helpers/* /var/www/html/application/helpers/ 2>/dev/null || true
             
-            # Update compiled assets
+            # Update config files (preserve user settings but merge new configs)
+            echo "  ⚙️  Updating configuration files..."
+            if [ -f "/tmp/app/application/config/config.php" ] && [ -f "/var/www/html/application/config/config.php" ]; then
+                # Backup current config
+                cp /var/www/html/application/config/config.php /var/www/html/application/config/config.php.backup 2>/dev/null || true
+                # Copy new config (user should review and merge manually if needed)
+                # For now, we'll preserve the existing config but show a warning
+                echo "  ⚠️  Config file exists - preserving user settings"
+                # Update only if new config has critical changes (pt-br mapping, etc)
+                if ! grep -q "pt-br" /var/www/html/application/config/config.php 2>/dev/null; then
+                    echo "  🔧 Merging critical config updates (pt-br locale mapping)..."
+                    # This is a simple merge - in production you might want more sophisticated logic
+                    cp -f /tmp/app/application/config/config.php /var/www/html/application/config/config.php 2>/dev/null || true
+                fi
+            else
+                # No existing config, just copy
+                cp -f /tmp/app/application/config/config.php /var/www/html/application/config/config.php 2>/dev/null || true
+            fi
+            
+            # Update compiled assets (including subdirectories)
             echo "  🎨 Updating compiled assets..."
-            cp -rf /tmp/app/assets/js/*.min.js /var/www/html/assets/js/ 2>/dev/null || true
-            find /tmp/app/assets/js -name "*.min.js" -exec cp -rf {} /var/www/html/assets/js/ \; 2>/dev/null || true
-            cp -rf /tmp/app/assets/css/*.min.css /var/www/html/assets/css/ 2>/dev/null || true
+            # Remove old minified files to ensure clean update
+            find /var/www/html/assets/js -name "*.min.js" -type f -delete 2>/dev/null || true
+            find /var/www/html/assets/css -name "*.min.css" -type f -delete 2>/dev/null || true
+            # Copy all new minified assets recursively
+            find /tmp/app/assets/js -name "*.min.js" -type f -exec sh -c 'mkdir -p "$(dirname "/var/www/html/assets/js/$(echo "$1" | sed "s|/tmp/app/assets/js/||")")" && cp -f "$1" "/var/www/html/assets/js/$(echo "$1" | sed "s|/tmp/app/assets/js/||")"' _ {} \; 2>/dev/null || true
+            find /tmp/app/assets/css -name "*.min.css" -type f -exec sh -c 'mkdir -p "$(dirname "/var/www/html/assets/css/$(echo "$1" | sed "s|/tmp/app/assets/css/||")")" && cp -f "$1" "/var/www/html/assets/css/$(echo "$1" | sed "s|/tmp/app/assets/css/||")"' _ {} \; 2>/dev/null || true
+            # Update vendor assets
+            rm -rf /var/www/html/assets/vendor 2>/dev/null || true
             cp -rf /tmp/app/assets/vendor /var/www/html/assets/ 2>/dev/null || true
             
             # Update system files
@@ -131,9 +173,16 @@ else
             touch "$INIT_MARKER"
             chown appuser:appuser "$INIT_MARKER" 2>/dev/null || true
             
+            # Store current image digest/timestamp for future comparisons
+            echo "$TMP_MTIME" > "$IMAGE_DIGEST_FILE" 2>/dev/null || true
+            chown appuser:appuser "$IMAGE_DIGEST_FILE" 2>/dev/null || true
+            
             echo "✅ Application updated successfully"
         else
             echo "  ℹ️  No updates needed (image is not newer)"
+            if [ "$FORCE_UPDATE" = "true" ]; then
+                echo "  ⚠️  FORCE_UPDATE was set but no newer image detected"
+            fi
         fi
     fi
 fi

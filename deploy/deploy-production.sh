@@ -613,8 +613,9 @@ update_production() {
     log "INFO" "Stopping containers..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down --remove-orphans || true
 
-    log "INFO" "Starting services with updated images..."
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+    log "INFO" "Starting services with updated images (forcing asset update)..."
+    # Set FORCE_UPDATE env var to trigger asset refresh in start-production script
+    FORCE_UPDATE=true docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
 
     log "INFO" "Waiting for services to be ready..."
     sleep 15

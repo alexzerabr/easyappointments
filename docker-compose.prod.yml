@@ -16,6 +16,7 @@ services:
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
+      - FORCE_UPDATE=${FORCE_UPDATE:-false}
       - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
       - DB_HOST=mysql
       - DB_PORT=${DB_PORT:-3306}
@@ -87,6 +88,7 @@ services:
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
+      - FORCE_UPDATE=${FORCE_UPDATE:-false}
       - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
       - DB_HOST=mysql
       - DB_PORT=${DB_PORT:-3306}
