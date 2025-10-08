@@ -190,6 +190,9 @@ function vendor(done) {
         .pipe(rename({suffix: '.min'}))
         .pipe(gulp.dest('assets/vendor/flatpickr'));
 
+    // qrcodejs
+    gulp.src(['node_modules/qrcodejs/qrcode.min.js']).pipe(gulp.dest('assets/vendor/qrcodejs'));
+
     done();
 }
 

@@ -189,24 +189,38 @@ App.Pages.Account = (function () {
             .done((response) => {
                 if (!response.success) { return; }
                 const otpauth = response.otpauth;
+                const secret = response.secret;
+                
                 if (response.qr_data_url) {
+                    // Server-side QR code generation successful
                     $twoFactorQrContainer.addClass('d-none');
                     $twoFactorQr.attr('src', response.qr_data_url).removeClass('d-none');
-                } else if (window.QRCode) {
+                } else if (typeof QRCode !== 'undefined') {
+                    // Client-side QR code generation
                     try {
                         $twoFactorQr.addClass('d-none');
                         $twoFactorQrContainer.empty();
                         const elem = $twoFactorQrContainer.get(0);
-                        // qrcode.js (kazuhiko) API: new QRCode(element, { text, width, height })
+                        // qrcode.js (davidshimjs) API: new QRCode(element, { text, width, height })
                         new QRCode(elem, { text: otpauth, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.L });
                         $twoFactorQrContainer.removeClass('d-none');
                     } catch (e) {
+                        console.error('QRCode generation failed:', e);
                         $twoFactorQr.addClass('d-none');
                         $twoFactorQrContainer.addClass('d-none');
+                        // Show manual setup option
+                        if (secret) {
+                            App.Layouts.Backend.displayNotification('QR code could not be generated. Manual secret: ' + secret);
+                        }
                     }
                 } else {
+                    // QRCode library not loaded - show manual setup
+                    console.error('QRCode library not loaded. Check that qrcode.min.js is available.');
                     $twoFactorQr.addClass('d-none');
                     $twoFactorQrContainer.addClass('d-none');
+                    if (secret) {
+                        App.Layouts.Backend.displayNotification('Please enter this secret manually in your authenticator app: ' + secret);
+                    }
                 }
                 $twoFactorCode.val('');
                 $twoFactorEnableBtn.removeClass('d-none');

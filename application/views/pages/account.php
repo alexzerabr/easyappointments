@@ -236,7 +236,7 @@
 <?php section('scripts'); ?>
 
 <script src="<?= asset_url('assets/js/http/two_factor_http_client.js') ?>"></script>
-<script src="<?= asset_url('assets/js/vendor/qrcode.min.js') ?>"></script>
+<script src="<?= asset_url('assets/vendor/qrcodejs/qrcode.min.js') ?>"></script>
 <script src="<?= asset_url('assets/js/http/account_http_client.js') ?>"></script>
 <script src="<?= asset_url('assets/js/pages/account.js') ?>"></script>
 
