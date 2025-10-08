@@ -1,0 +1,374 @@
+#!/bin/bash
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}🚀 Easy!Appointments Production Container${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+# Function to safely copy files
+safe_copy() {
+    local src="$1"
+    local dest="$2"
+    if [ -e "$src" ]; then
+        cp -rf "$src" "$dest"
+        echo -e "${GREEN}  ✓ Copied $(basename "$src")${NC}"
+    else
+        echo -e "${YELLOW}  ⚠ Source not found: $src${NC}"
+    fi
+}
+
+# Function to create directory with proper permissions
+ensure_dir() {
+    local dir="$1"
+    local mode="${2:-755}"
+    if [ ! -d "$dir" ]; then
+        mkdir -p "$dir"
+        chmod "$mode" "$dir"
+        echo -e "${GREEN}  ✓ Created: $dir (${mode})${NC}"
+    fi
+}
+
+# Function to log with timestamp
+log_info() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] ℹ️  $1${NC}"
+}
+
+log_success() {
+    echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] ✅ $1${NC}"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] ⚠️  $1${NC}"
+}
+
+log_error() {
+    echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ❌ $1${NC}"
+}
+
+# Configuration
+INIT_MARKER="/var/www/html/.docker-init-complete"
+IMAGE_DIGEST_FILE="/var/www/html/.docker-image-digest"
+FORCE_UPDATE="${FORCE_UPDATE:-false}"
+
+# Validate source directory
+if [ ! -d "/tmp/app" ]; then
+    log_error "Source directory /tmp/app not found! Build issue?"
+    exit 1
+fi
+
+# Check if this is the first run
+if [ ! -f "$INIT_MARKER" ]; then
+    log_info "First run detected - initializing shared volume..."
+    
+    # Ensure base directory structure exists
+    log_info "Creating directory structure..."
+    ensure_dir "/var/www/html/application" 755
+    ensure_dir "/var/www/html/assets" 755
+    ensure_dir "/var/www/html/system" 755
+    ensure_dir "/var/www/html/storage/logs" 775
+    ensure_dir "/var/www/html/storage/cache" 775
+    ensure_dir "/var/www/html/storage/sessions" 775
+    ensure_dir "/var/www/html/storage/uploads" 775
+    ensure_dir "/var/www/html/storage/backups" 775
+    
+    # Copy application files (only if not already present)
+    if [ ! -d "/var/www/html/application/controllers" ]; then
+        log_info "Copying application files..."
+        cp -rf /tmp/app/application/* /var/www/html/application/ 2>/dev/null || true
+        log_success "Application files copied"
+    else
+        log_info "Application files already exist, skipping"
+    fi
+    
+    # Copy assets files (only if not already present)
+    if [ ! -d "/var/www/html/assets/css" ] || [ ! -d "/var/www/html/assets/js" ]; then
+        log_info "Copying built assets..."
+        cp -rf /tmp/app/assets/* /var/www/html/assets/ 2>/dev/null || true
+        log_success "Assets copied"
+    else
+        log_info "Assets already exist, skipping"
+    fi
+
+    # Copy scripts directory (CLI workers, etc.)
+    if [ ! -d "/var/www/html/scripts" ]; then
+        log_info "Copying scripts directory..."
+        mkdir -p /var/www/html/scripts
+        cp -rf /tmp/app/scripts/* /var/www/html/scripts/ 2>/dev/null || true
+        log_success "Scripts copied"
+    else
+        log_info "Scripts directory already exists"
+    fi
+    
+    # Copy system files (only if not already present)
+    if [ ! -d "/var/www/html/system/core" ]; then
+        log_info "Copying system files..."
+        cp -rf /tmp/app/system/* /var/www/html/system/ 2>/dev/null || true
+        log_success "System files copied"
+    else
+        log_info "System files already exist, skipping"
+    fi
+    
+    # Copy vendor directory (critical for production)
+    if [ ! -d "/var/www/html/vendor" ] || [ ! -f "/var/www/html/vendor/autoload.php" ]; then
+        log_info "Copying vendor dependencies..."
+        if [ -d "/tmp/app/vendor" ]; then
+            cp -rf /tmp/app/vendor /var/www/html/ 2>/dev/null || true
+            log_success "Vendor dependencies copied"
+        else
+            log_error "Vendor directory not found in /tmp/app - build issue!"
+            exit 1
+        fi
+    else
+        log_info "Vendor directory already exists"
+    fi
+    
+    # Copy essential files
+    log_info "Copying essential files..."
+    safe_copy "/tmp/app/index.php" "/var/www/html/"
+    safe_copy "/tmp/app/patch.php" "/var/www/html/"
+    safe_copy "/tmp/app/.htaccess" "/var/www/html/"
+    
+    # DO NOT copy config.php if it's mounted (production uses mounted config)
+    if [ ! -f "/var/www/html/config.php" ]; then
+        log_warning "config.php not found - should be mounted as volume in production"
+    fi
+    
+    # Set proper ownership and permissions
+    log_info "Setting ownership and permissions..."
+    chown -R appuser:appuser /var/www/html/ 2>/dev/null || true
+    
+    # Ensure storage directories are writable
+    find /var/www/html/storage -type d -exec chmod 775 {} \; 2>/dev/null || true
+    find /var/www/html/storage -type f -exec chmod 664 {} \; 2>/dev/null || true
+    
+    # Ensure assets are readable
+    find /var/www/html/assets -type d -exec chmod 755 {} \; 2>/dev/null || true
+    find /var/www/html/assets -type f -exec chmod 644 {} \; 2>/dev/null || true
+    
+    # Create initialization marker
+    touch "$INIT_MARKER"
+    chown appuser:appuser "$INIT_MARKER" 2>/dev/null || true
+    
+    # Store initial image timestamp
+    TMP_MTIME=$(stat -c %Y /tmp/app 2>/dev/null || stat -f %m /tmp/app 2>/dev/null || date +%s)
+    echo "$TMP_MTIME" > "$IMAGE_DIGEST_FILE" 2>/dev/null || true
+    chown appuser:appuser "$IMAGE_DIGEST_FILE" 2>/dev/null || true
+    
+    log_success "Volume initialization completed!"
+    
+else
+    log_info "Volume already initialized, checking for updates..."
+    
+    # Validate that critical directories exist
+    NEEDS_REPAIR=false
+    
+    if [ ! -d "/var/www/html/vendor" ] || [ ! -f "/var/www/html/vendor/autoload.php" ]; then
+        log_warning "Vendor directory missing or incomplete - needs repair"
+        NEEDS_REPAIR=true
+    fi
+    
+    if [ ! -d "/var/www/html/scripts" ]; then
+        log_warning "Scripts directory missing - needs repair"
+        NEEDS_REPAIR=true
+    fi
+    
+    if [ "$NEEDS_REPAIR" = "true" ]; then
+        log_info "Repairing missing components..."
+        
+        if [ ! -d "/var/www/html/vendor" ] || [ ! -f "/var/www/html/vendor/autoload.php" ]; then
+            log_info "Restoring vendor dependencies..."
+            cp -rf /tmp/app/vendor /var/www/html/ 2>/dev/null || true
+            chown -R appuser:appuser /var/www/html/vendor 2>/dev/null || true
+        fi
+        
+        if [ ! -d "/var/www/html/scripts" ]; then
+            log_info "Restoring scripts directory..."
+            mkdir -p /var/www/html/scripts
+            cp -rf /tmp/app/scripts/* /var/www/html/scripts/ 2>/dev/null || true
+            chown -R appuser:appuser /var/www/html/scripts 2>/dev/null || true
+        fi
+        
+        log_success "Repair completed"
+    fi
+    
+    # Check for updates
+    if [ -d "/tmp/app" ] && [ -d "/var/www/html" ]; then
+        TMP_MTIME=$(stat -c %Y /tmp/app 2>/dev/null || stat -f %m /tmp/app 2>/dev/null || echo 0)
+        VOL_MTIME=$(stat -c %Y /var/www/html/.docker-init-complete 2>/dev/null || stat -f %m /var/www/html/.docker-init-complete 2>/dev/null || echo 0)
+        
+        # Read stored digest if exists
+        STORED_DIGEST=""
+        if [ -f "$IMAGE_DIGEST_FILE" ]; then
+            STORED_DIGEST=$(cat "$IMAGE_DIGEST_FILE" 2>/dev/null || echo "")
+        fi
+        
+        # Detect if update is needed
+        UPDATE_NEEDED=false
+        UPDATE_REASON=""
+        
+        if [ "$FORCE_UPDATE" = "true" ]; then
+            UPDATE_NEEDED=true
+            UPDATE_REASON="FORCE_UPDATE=true"
+        elif [ "$TMP_MTIME" -gt "$VOL_MTIME" ]; then
+            UPDATE_NEEDED=true
+            UPDATE_REASON="Newer image detected (timestamp)"
+        elif [ -n "$STORED_DIGEST" ] && [ "$TMP_MTIME" != "$STORED_DIGEST" ]; then
+            UPDATE_NEEDED=true
+            UPDATE_REASON="Image digest changed"
+        fi
+        
+        if [ "$UPDATE_NEEDED" = "true" ]; then
+            log_info "Update needed: $UPDATE_REASON"
+            log_info "Updating application files..."
+            
+            # Update application files (controllers, views, libraries, migrations, etc.)
+            log_info "  Updating application components..."
+            cp -rf /tmp/app/application/controllers/* /var/www/html/application/controllers/ 2>/dev/null || true
+            cp -rf /tmp/app/application/views/* /var/www/html/application/views/ 2>/dev/null || true
+            cp -rf /tmp/app/application/libraries/* /var/www/html/application/libraries/ 2>/dev/null || true
+            cp -rf /tmp/app/application/migrations/* /var/www/html/application/migrations/ 2>/dev/null || true
+            cp -rf /tmp/app/application/language/* /var/www/html/application/language/ 2>/dev/null || true
+            cp -rf /tmp/app/application/models/* /var/www/html/application/models/ 2>/dev/null || true
+            cp -rf /tmp/app/application/helpers/* /var/www/html/application/helpers/ 2>/dev/null || true
+            cp -rf /tmp/app/application/core/* /var/www/html/application/core/ 2>/dev/null || true
+            
+            # Update config files carefully (preserve user config.php if mounted)
+            log_info "  Updating configuration files..."
+            # Copy config samples and other non-user configs
+            for config_file in /tmp/app/application/config/*.php; do
+                filename=$(basename "$config_file")
+                # Skip config.php if it exists (it's mounted in production)
+                if [ "$filename" = "config.php" ] && [ -f "/var/www/html/application/config/config.php" ]; then
+                    log_info "    Preserving mounted config.php"
+                    continue
+                fi
+                cp -f "$config_file" "/var/www/html/application/config/" 2>/dev/null || true
+            done
+            
+            # Update compiled assets
+            log_info "  Updating compiled assets..."
+            # Remove old minified files
+            find /var/www/html/assets/js -name "*.min.js" -type f -delete 2>/dev/null || true
+            find /var/www/html/assets/css -name "*.min.css" -type f -delete 2>/dev/null || true
+            
+            # Copy new minified assets recursively
+            if [ -d "/tmp/app/assets/js" ]; then
+                find /tmp/app/assets/js -name "*.min.js" -type f -exec sh -c '
+                    rel_path=$(echo "$1" | sed "s|^/tmp/app/assets/js/||")
+                    dest_dir="/var/www/html/assets/js/$(dirname "$rel_path")"
+                    mkdir -p "$dest_dir"
+                    cp -f "$1" "$dest_dir/"
+                ' _ {} \; 2>/dev/null || true
+            fi
+            
+            if [ -d "/tmp/app/assets/css" ]; then
+                find /tmp/app/assets/css -name "*.min.css" -type f -exec sh -c '
+                    rel_path=$(echo "$1" | sed "s|^/tmp/app/assets/css/||")
+                    dest_dir="/var/www/html/assets/css/$(dirname "$rel_path")"
+                    mkdir -p "$dest_dir"
+                    cp -f "$1" "$dest_dir/"
+                ' _ {} \; 2>/dev/null || true
+            fi
+            
+            # Update vendor assets
+            if [ -d "/tmp/app/assets/vendor" ]; then
+                log_info "  Updating vendor assets..."
+                rm -rf /var/www/html/assets/vendor 2>/dev/null || true
+                cp -rf /tmp/app/assets/vendor /var/www/html/assets/ 2>/dev/null || true
+            fi
+            
+            # Update system files
+            log_info "  Updating system files..."
+            cp -rf /tmp/app/system/* /var/www/html/system/ 2>/dev/null || true
+            
+            # Update vendor dependencies
+            log_info "  Updating vendor dependencies..."
+            if [ -d "/tmp/app/vendor" ]; then
+                rm -rf /var/www/html/vendor 2>/dev/null || true
+                cp -rf /tmp/app/vendor /var/www/html/ 2>/dev/null || true
+            fi
+            
+            # Update scripts
+            log_info "  Updating scripts..."
+            if [ -d "/tmp/app/scripts" ]; then
+                cp -rf /tmp/app/scripts/* /var/www/html/scripts/ 2>/dev/null || true
+            fi
+            
+            # Update essential root files
+            log_info "  Updating root files..."
+            safe_copy "/tmp/app/index.php" "/var/www/html/"
+            safe_copy "/tmp/app/patch.php" "/var/www/html/"
+            safe_copy "/tmp/app/.htaccess" "/var/www/html/"
+            
+            # Set proper ownership
+            log_info "  Updating permissions..."
+            chown -R appuser:appuser /var/www/html/application 2>/dev/null || true
+            chown -R appuser:appuser /var/www/html/assets 2>/dev/null || true
+            chown -R appuser:appuser /var/www/html/system 2>/dev/null || true
+            chown -R appuser:appuser /var/www/html/vendor 2>/dev/null || true
+            chown -R appuser:appuser /var/www/html/scripts 2>/dev/null || true
+            
+            # Update the marker timestamp
+            touch "$INIT_MARKER"
+            chown appuser:appuser "$INIT_MARKER" 2>/dev/null || true
+            
+            # Store current image digest
+            echo "$TMP_MTIME" > "$IMAGE_DIGEST_FILE" 2>/dev/null || true
+            chown appuser:appuser "$IMAGE_DIGEST_FILE" 2>/dev/null || true
+            
+            log_success "Application updated successfully (Reason: $UPDATE_REASON)"
+        else
+            log_info "No updates needed (image is same version)"
+        fi
+    fi
+fi
+
+# Final safety checks and permissions
+log_info "Performing final checks..."
+
+# Ensure critical runtime files exist
+if [ ! -f "/var/www/html/scripts/whatsapp_worker.php" ] && [ -f "/tmp/app/scripts/whatsapp_worker.php" ]; then
+    log_warning "WhatsApp worker missing, restoring..."
+    mkdir -p /var/www/html/scripts
+    cp -rf /tmp/app/scripts/* /var/www/html/scripts/ 2>/dev/null || true
+    chown -R appuser:appuser /var/www/html/scripts 2>/dev/null || true
+fi
+
+# Ensure storage directories exist and are writable
+log_info "Ensuring storage directories..."
+ensure_dir "/var/www/html/storage/logs" 775
+ensure_dir "/var/www/html/storage/cache" 775
+ensure_dir "/var/www/html/storage/sessions" 775
+ensure_dir "/var/www/html/storage/uploads" 775
+ensure_dir "/var/www/html/storage/backups" 775
+
+chown -R appuser:appuser /var/www/html/storage 2>/dev/null || true
+find /var/www/html/storage -type d -exec chmod 775 {} \; 2>/dev/null || true
+find /var/www/html/storage -type f -exec chmod 664 {} \; 2>/dev/null || true
+
+# Create log file that appuser can write to
+touch /var/www/html/storage/logs/php-fpm.log 2>/dev/null || true
+chown appuser:appuser /var/www/html/storage/logs/php-fpm.log 2>/dev/null || true
+
+# Display startup summary
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_success "Production environment ready!"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}📊 Environment Status:${NC}"
+echo -e "  • Application:     ${GREEN}✓ Initialized${NC}"
+echo -e "  • Dependencies:    ${GREEN}✓ Ready${NC}"
+echo -e "  • Storage:         ${GREEN}✓ Writable${NC}"
+echo -e "  • PHP-FPM Pool:    appuser:appuser"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+# Start php-fpm in foreground
+log_info "Starting PHP-FPM..."
+exec php-fpm -F

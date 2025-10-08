@@ -1,0 +1,88 @@
+/*.zip
+/.idea/
+/.tmp-package/
+/build/
+/docs/apigen/html
+/docs/jsdoc/html
+/docs/plato/html
+/docker/mysql/
+/docker/mysql-dev/
+/docker/baikal/
+/docker/openldap/
+/node_modules/
+/npm-debug.log
+/assets/js/**/*.min.js
+/assets/css/**/*.css
+/assets/vendor
+/config.php
+/docker-compose.yml
+/storage/backups/*
+!/storage/backups/.htaccess
+!/storage/backups/index.html
+/storage/cache/*
+!/storage/cache/.htaccess
+!/storage/cache/index.html
+/storage/logs/*
+!/storage/logs/.htaccess
+!/storage/logs/index.html
+/storage/sessions/*
+!/storage/sessions/.htaccess
+!/storage/sessions/index.html
+/storage/uploads/*
+!/storage/uploads/index.html
+/vendor/
+/metafile
+.DS_Store
+.env
+.env.*
+!.env-example
+!.env-dev.example
+# Production environment files
+.env.production
+.env-prod
+# Development environment files
+.env-dev
+.env-dev.local
+# Backup files (may contain credentials)
+*.backup
+config.php.backup
+
+# README.md - Guia de desenvolvimento (não versionar para evitar conflitos)
+# Use como referência local para fluxo de trabalho
+README.md
+DEPLOYMENT-DEV-SUMMARY.md
+DEV-QUICKSTART.md
+
+# Arquivos de desenvolvimento desnecessários
+cookies.txt
+*.cookies
+curl_cookies.txt
+
+# Arquivos temporários de ferramentas e IDEs
+.vscode/
+.idea/
+*.sublime-*
+*~
+*.swp
+*.swo
+
+# OS específicos
+Thumbs.db
+desktop.ini
+
+# Dados de desenvolvimento/teste
+test-data/
+sample-data/
+dummy-data/
+
+# Certificados e chaves de desenvolvimento
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Arquivos de profiling/debug
+*.prof
+*.trace
+xdebug.out
