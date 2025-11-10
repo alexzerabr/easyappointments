@@ -76,6 +76,7 @@ class Calendar extends EA_Controller
         $this->load->model('services_model');
         $this->load->model('providers_model');
         $this->load->model('roles_model');
+        $this->load->model('recurring_appointments_model');
 
         $this->load->library('accounts');
         $this->load->library('google_sync');
@@ -574,6 +575,20 @@ class Calendar extends EA_Controller
                 $appointment['provider'] = $this->providers_model->find($appointment['id_users_provider']);
                 $appointment['service'] = $this->services_model->find($appointment['id_services']);
                 $appointment['customer'] = $this->customers_model->find($appointment['id_users_customer']);
+                
+                // Add recurring series information if applicable
+                if (!empty($appointment['id_recurring_appointment'])) {
+                    try {
+                        $appointment['recurring_series'] = $this->recurring_appointments_model->find(
+                            $appointment['id_recurring_appointment']
+                        );
+                        $appointment['is_recurring'] = true;
+                    } catch (Exception $e) {
+                        $appointment['is_recurring'] = false;
+                    }
+                } else {
+                    $appointment['is_recurring'] = false;
+                }
             }
 
             unset($appointment);
@@ -710,6 +725,20 @@ class Calendar extends EA_Controller
                 $appointment['provider'] = $this->providers_model->find($appointment['id_users_provider']);
                 $appointment['service'] = $this->services_model->find($appointment['id_services']);
                 $appointment['customer'] = $this->customers_model->find($appointment['id_users_customer']);
+                
+                // Add recurring series information if applicable
+                if (!empty($appointment['id_recurring_appointment'])) {
+                    try {
+                        $appointment['recurring_series'] = $this->recurring_appointments_model->find(
+                            $appointment['id_recurring_appointment']
+                        );
+                        $appointment['is_recurring'] = true;
+                    } catch (Exception $e) {
+                        $appointment['is_recurring'] = false;
+                    }
+                } else {
+                    $appointment['is_recurring'] = false;
+                }
             }
 
             unset($appointment);
@@ -802,6 +831,215 @@ class Calendar extends EA_Controller
             $response['blocked_periods'] = $this->blocked_periods_model->get_for_period($start_date, $end_date);
 
             json_response($response);
+        } catch (Throwable $e) {
+            json_exception($e);
+        }
+    }
+
+    /**
+     * Save a recurring appointment series.
+     */
+    public function save_recurring_appointment(): void
+    {
+        try {
+            if (cannot('add', PRIV_APPOINTMENTS)) {
+                throw new RuntimeException('You do not have the required permissions for this task.');
+            }
+
+            $this->load->model('recurring_appointments_model');
+
+            $recurring_appointment = request('recurring_appointment');
+            $customer = request('customer');
+
+            // Validate and save/update customer
+            $customer_id = null;
+
+            if (!empty($customer['id'])) {
+                $customer_id = $customer['id'];
+                $this->customers_model->only($customer, $this->allowed_customer_fields);
+                $this->customers_model->save($customer);
+            } else {
+                $this->customers_model->only($customer, $this->allowed_customer_fields);
+                $customer_id = $this->customers_model->save($customer);
+            }
+
+            $recurring_appointment['id_users_customer'] = $customer_id;
+
+            // Validate conflicts
+            $conflicts = $this->recurring_appointments_model->validate_conflicts($recurring_appointment);
+
+            if (!empty($conflicts)) {
+                json_response([
+                    'success' => false,
+                    'message' => lang('recurring_conflicts_found'),
+                    'conflicts' => $conflicts,
+                ]);
+                return;
+            }
+
+            // Save recurring appointment
+            $recurring_id = $this->recurring_appointments_model->save($recurring_appointment);
+
+            // Generate appointments
+            $appointment_ids = $this->recurring_appointments_model->generate_appointments($recurring_id);
+
+            json_response([
+                'success' => true,
+                'recurring_id' => $recurring_id,
+                'appointment_ids' => $appointment_ids,
+                'message' => lang('recurring_appointment_created'),
+            ]);
+        } catch (Throwable $e) {
+            json_exception($e);
+        }
+    }
+
+    /**
+     * Get a recurring appointment by ID.
+     */
+    public function get_recurring_appointment(): void
+    {
+        try {
+            if (cannot('view', PRIV_APPOINTMENTS)) {
+                throw new RuntimeException('You do not have the required permissions for this task.');
+            }
+
+            $this->load->model('recurring_appointments_model');
+
+            $recurring_id = request('recurring_id');
+
+            $recurring_appointment = $this->recurring_appointments_model->find($recurring_id);
+
+            json_response($recurring_appointment);
+        } catch (Throwable $e) {
+            json_exception($e);
+        }
+    }
+
+    /**
+     * Update a recurring series of appointments.
+     */
+    public function update_recurring_series(): void
+    {
+        try {
+            if (cannot('edit', PRIV_APPOINTMENTS)) {
+                throw new RuntimeException('You do not have the required permissions for this task.');
+            }
+
+            $this->load->model('recurring_appointments_model');
+
+            $recurring_id = request('recurring_id');
+            $appointment_id = request('appointment_id');
+            $scope = request('scope'); // 'this_one', 'future', or 'all'
+            $data = request('data');
+
+            // Validate scope
+            if (!in_array($scope, ['this_one', 'future', 'all'])) {
+                throw new InvalidArgumentException('Invalid scope: ' . $scope);
+            }
+
+            // Update appointments
+            $updated_count = $this->appointments_model->update_series($recurring_id, $appointment_id, $data, $scope);
+
+            json_response([
+                'success' => true,
+                'updated_count' => $updated_count,
+                'message' => lang('recurring_series_updated'),
+            ]);
+        } catch (Throwable $e) {
+            json_exception($e);
+        }
+    }
+
+    /**
+     * Delete a recurring series of appointments.
+     */
+    public function delete_recurring_series(): void
+    {
+        try {
+            if (cannot('delete', PRIV_APPOINTMENTS)) {
+                throw new RuntimeException('You do not have the required permissions for this task.');
+            }
+
+            $this->load->model('recurring_appointments_model');
+
+            $recurring_id = request('recurring_id');
+            $appointment_id = request('appointment_id');
+            $scope = request('scope'); // 'this_one', 'future', or 'all'
+
+            // Validate scope
+            if (!in_array($scope, ['this_one', 'future', 'all'])) {
+                throw new InvalidArgumentException('Invalid scope: ' . $scope);
+            }
+
+            // Delete appointments
+            $deleted_count = $this->appointments_model->delete_series($recurring_id, $appointment_id, $scope);
+
+            // If all appointments were deleted, delete the recurring series
+            if ($scope === 'all') {
+                $this->recurring_appointments_model->delete($recurring_id);
+            }
+
+            json_response([
+                'success' => true,
+                'deleted_count' => $deleted_count,
+                'message' => lang('recurring_series_deleted'),
+            ]);
+        } catch (Throwable $e) {
+            json_exception($e);
+        }
+    }
+
+    /**
+     * Preview recurring appointments before creation.
+     */
+    public function preview_recurring_appointments(): void
+    {
+        try {
+            if (cannot('view', PRIV_APPOINTMENTS)) {
+                throw new RuntimeException('You do not have the required permissions for this task.');
+            }
+
+            $this->load->model('recurring_appointments_model');
+
+            // Get recurring data from request parameters
+            $recurring_data = [
+                'recurrence_type' => request('recurrence_type'),
+                'start_date' => request('start_date'),
+                'end_date' => request('end_date'),
+                'interval_days' => request('interval_days') ? (int) request('interval_days') : null,
+                'week_days' => request('week_days'),
+                'appointment_time' => request('appointment_time'),
+                'duration' => request('duration') ? (int) request('duration') : null,
+                'id_users_provider' => request('id_users_provider') ? (int) request('id_users_provider') : null,
+                'id_services' => request('id_services') ? (int) request('id_services') : null,
+            ];
+
+            // Remove null and empty values
+            $recurring_data = array_filter($recurring_data, function ($value) {
+                return $value !== null && $value !== '';
+            });
+
+            // Validate required fields
+            if (empty($recurring_data['recurrence_type']) || empty($recurring_data['start_date']) || empty($recurring_data['end_date'])) {
+                throw new InvalidArgumentException('Missing required recurring appointment fields.');
+            }
+
+            // Generate dates
+            $dates = $this->recurring_appointments_model->generate_dates($recurring_data);
+
+            // Check for conflicts only if we have the necessary fields
+            $conflicts = [];
+            if (!empty($recurring_data['appointment_time']) && !empty($recurring_data['duration']) && !empty($recurring_data['id_users_provider'])) {
+                $conflicts = $this->recurring_appointments_model->validate_conflicts($recurring_data);
+            }
+
+            json_response([
+                'success' => true,
+                'dates' => $dates,
+                'count' => count($dates),
+                'conflicts' => $conflicts,
+            ]);
         } catch (Throwable $e) {
             json_exception($e);
         }

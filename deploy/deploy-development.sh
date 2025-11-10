@@ -239,7 +239,15 @@ setup_config() {
     local APP_URL="${APP_URL:-http://localhost}"
     
     # Atualiza config.php com valores do .env-dev
-    sed -i "s|const BASE_URL = 'http://localhost';|const BASE_URL = '${APP_URL}';|g" config.php
+    local base_url="${APP_URL:-http://localhost}"
+    local http_port="${HTTP_PORT:-80}"
+    
+    # Adiciona porta ao BASE_URL se não for 80
+    if [ "$http_port" != "80" ]; then
+        base_url="${base_url}:${http_port}"
+    fi
+    
+    sed -i "s|const BASE_URL = 'http://localhost';|const BASE_URL = '${base_url}';|g" config.php
     sed -i "s|const DEBUG_MODE = false;|const DEBUG_MODE = true;|g" config.php
     sed -i "s|const DB_HOST = 'mysql';|const DB_HOST = '${DB_HOST}';|g" config.php
     sed -i "s|const DB_NAME = 'easyappointments';|const DB_NAME = '${DB_NAME}';|g" config.php
@@ -248,7 +256,7 @@ setup_config() {
     
     log "SUCCESS" "config.php configurado com credenciais de desenvolvimento"
     log "INFO" "Credenciais configuradas:"
-    log "INFO" "  - BASE_URL: ${APP_URL}"
+    log "INFO" "  - BASE_URL: ${base_url}"
     log "INFO" "  - DB_HOST: ${DB_HOST}"
     log "INFO" "  - DB_NAME: ${DB_NAME}"
     log "INFO" "  - DB_USERNAME: ${DB_USER}"
@@ -420,9 +428,10 @@ cmd_up() {
     log "INFO" "Aguardando aplicação ficar disponível..."
     local app_timeout=60
     local app_elapsed=0
+    local http_port="${HTTP_PORT:-80}"
     
     while [ $app_elapsed -lt $app_timeout ]; do
-        if curl -fsS --connect-timeout 3 "http://localhost/index.php/installation" >/dev/null 2>&1; then
+        if curl -fsS --connect-timeout 3 "http://localhost:${http_port}/index.php/installation" >/dev/null 2>&1; then
             log "SUCCESS" "Aplicação está respondendo"
             break
         fi
@@ -450,8 +459,8 @@ cmd_up() {
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
     
     echo -e "\n${BLUE}🌐 URLs de Acesso:${NC}"
-    echo -e "  📋 Instalação:  ${WHITE}http://localhost/index.php/installation${NC}"
-    echo -e "  🏠 Aplicação:   ${WHITE}http://localhost${NC}"
+    echo -e "  📋 Instalação:  ${WHITE}http://localhost:${http_port}/index.php/installation${NC}"
+    echo -e "  🏠 Aplicação:   ${WHITE}http://localhost:${http_port}${NC}"
     echo -e "  📧 Mailpit:     ${WHITE}http://localhost:8025${NC}"
     
     echo -e "\n${BLUE}🗄️  Credenciais do Banco:${NC}"
@@ -462,7 +471,7 @@ cmd_up() {
     echo -e "  Root:     ${WHITE}${MYSQL_ROOT_PASSWORD}${NC}"
     
     echo -e "\n${YELLOW}📝 Próximos Passos:${NC}"
-    echo -e "  1. Acesse: ${WHITE}http://localhost/index.php/installation${NC}"
+    echo -e "  1. Acesse: ${WHITE}http://localhost:${http_port}/index.php/installation${NC}"
     echo -e "  2. Use as credenciais do banco acima"
     echo -e "  3. Complete o wizard de instalação"
     
@@ -700,6 +709,7 @@ cmd_health() {
     log "INFO" "Verificando saúde do ambiente de desenvolvimento..."
     
     validate_environment
+    validate_env_file
     
     local exit_code=0
     
@@ -741,28 +751,41 @@ cmd_health() {
     
     # Verifica conectividade HTTP
     echo -e "\n${BLUE}3. Conectividade HTTP${NC}"
-    local http_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "http://localhost/index.php/installation" 2>/dev/null || echo "000")
+    local http_port="${HTTP_PORT:-80}"
+    local http_code=$(curl -s -o /dev/null -w "%{http_code}" -L --connect-timeout 5 "http://localhost:${http_port}/index.php/installation" 2>/dev/null || echo "000")
     if [ "$http_code" = "200" ]; then
         echo -e "   ${GREEN}✅ Aplicação respondendo (HTTP $http_code)${NC}"
+    elif [ "$http_code" = "303" ] || [ "$http_code" = "307" ]; then
+        echo -e "   ${GREEN}✅ Aplicação respondendo (HTTP $http_code - já instalada)${NC}"
     else
         echo -e "   ${RED}❌ Aplicação não responde corretamente (HTTP $http_code)${NC}"
         exit_code=1
     fi
-    
-    # Verifica CONTEÚDO da página de instalação
+
+    # Verifica CONTEÚDO da página (instalação ou booking se já instalado)
     echo -e "\n${BLUE}4. Validação de Conteúdo HTML${NC}"
-    local page_content=$(curl -fsS --connect-timeout 10 "http://localhost/index.php/installation" 2>/dev/null || echo "")
-    
-    # Procura por marcadores que indicam que a página de instalação/setup está carregada
-    if echo "$page_content" | grep -qi "installation\|install\|database\|config"; then
+    local page_content=$(curl -fsS -L --connect-timeout 10 "http://localhost:${http_port}/index.php/installation" 2>/dev/null || echo "")
+
+    # Procura por marcadores HTML básicos
+    # IMPORTANTE: Usar herestring (<<<) ao invés de pipe para evitar SIGPIPE com grep -q em strings grandes
+    if grep -qi "doctype" <<< "$page_content" && \
+       grep -qi "<html" <<< "$page_content"; then
         echo -e "   ${GREEN}✅ Página de instalação carregada com conteúdo correto${NC}"
-        if echo "$page_content" | grep -qi "config.php"; then
-            echo -e "   ${YELLOW}ℹ️  Aplicação pede config.php (comportamento esperado)${NC}"
+        # Verifica se tem o formulário de instalação (verificação adicional)
+        if grep -qi "Installation" <<< "$page_content" && \
+           grep -qi "Easy" <<< "$page_content"; then
+            echo -e "   ${GREEN}ℹ️  Título da página de instalação detectado${NC}"
+        fi
+        # Verifica campos do formulário
+        if grep -qi "Administrator" <<< "$page_content" && \
+           grep -qi "Database" <<< "$page_content"; then
+            echo -e "   ${GREEN}ℹ️  Formulário de instalação detectado${NC}"
         fi
     else
         echo -e "   ${RED}❌ Página de instalação não contém o conteúdo esperado${NC}"
         echo -e "   ${YELLOW}⚠️  Primeiros 200 caracteres recebidos:${NC}"
         echo "$page_content" | head -c 200
+        echo ""
         exit_code=1
     fi
     
@@ -879,8 +902,8 @@ EXEMPLOS DE USO:
   ./deploy/deploy-development.sh rebuild
 
 URLS DE ACESSO (após up):
-  • Instalação: http://localhost/index.php/installation
-  • Aplicação:  http://localhost
+  • Instalação: http://localhost:8080/index.php/installation
+  • Aplicação:  http://localhost:8080
   • Mailpit:    http://localhost:8025
 
 EOF

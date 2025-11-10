@@ -304,6 +304,125 @@ class Appointments_model extends EA_Model
     }
 
     /**
+     * Get appointments by recurring appointment ID.
+     *
+     * @param int $recurring_id Recurring appointment ID.
+     *
+     * @return array Returns an array of appointments.
+     */
+    public function get_by_recurring_id(int $recurring_id): array
+    {
+        return $this->get(['id_recurring_appointment' => $recurring_id], null, null, 'start_datetime ASC');
+    }
+
+    /**
+     * Update a recurring series of appointments.
+     *
+     * @param int $recurring_id Recurring appointment ID.
+     * @param int $appointment_id Current appointment ID (for scope).
+     * @param array $data Data to update.
+     * @param string $scope Scope: 'this_one', 'future', or 'all'.
+     *
+     * @return int Number of appointments updated.
+     *
+     * @throws InvalidArgumentException
+     */
+    public function update_series(int $recurring_id, int $appointment_id, array $data, string $scope): int
+    {
+        if (!in_array($scope, ['this_one', 'future', 'all'])) {
+            throw new InvalidArgumentException('Invalid scope: ' . $scope);
+        }
+
+        $updated_count = 0;
+        $data['update_datetime'] = date('Y-m-d H:i:s');
+
+        switch ($scope) {
+            case 'this_one':
+                // Update only this appointment and break it from the series
+                $data['id_recurring_appointment'] = null;
+                $this->db->where('id', $appointment_id);
+                $this->db->update('appointments', $data);
+                $updated_count = $this->db->affected_rows();
+                break;
+
+            case 'future':
+                // Update this and all future appointments in the series
+                $current_appointment = $this->find($appointment_id);
+                $current_datetime = $current_appointment['start_datetime'];
+
+                $this->db->where('id_recurring_appointment', $recurring_id);
+                $this->db->where('start_datetime >=', $current_datetime);
+                $this->db->update('appointments', $data);
+                $updated_count = $this->db->affected_rows();
+                break;
+
+            case 'all':
+                // Update all appointments in the series
+                $this->db->where('id_recurring_appointment', $recurring_id);
+                $this->db->update('appointments', $data);
+                $updated_count = $this->db->affected_rows();
+                break;
+        }
+
+        return $updated_count;
+    }
+
+    /**
+     * Delete a recurring series of appointments.
+     *
+     * @param int $recurring_id Recurring appointment ID.
+     * @param int $appointment_id Current appointment ID (for scope).
+     * @param string $scope Scope: 'this_one', 'future', or 'all'.
+     *
+     * @return int Number of appointments deleted.
+     *
+     * @throws InvalidArgumentException
+     */
+    public function delete_series(int $recurring_id, int $appointment_id, string $scope): int
+    {
+        if (!in_array($scope, ['this_one', 'future', 'all'])) {
+            throw new InvalidArgumentException('Invalid scope: ' . $scope);
+        }
+
+        $deleted_count = 0;
+
+        switch ($scope) {
+            case 'this_one':
+                // Delete only this appointment
+                $this->delete($appointment_id);
+                $deleted_count = 1;
+                break;
+
+            case 'future':
+                // Delete this and all future appointments in the series
+                $current_appointment = $this->find($appointment_id);
+                $current_datetime = $current_appointment['start_datetime'];
+
+                $this->db->where('id_recurring_appointment', $recurring_id);
+                $this->db->where('start_datetime >=', $current_datetime);
+                $appointments_to_delete = $this->db->get('appointments')->result_array();
+
+                foreach ($appointments_to_delete as $appointment) {
+                    $this->delete($appointment['id']);
+                    $deleted_count++;
+                }
+                break;
+
+            case 'all':
+                // Delete all appointments in the series
+                $appointments_to_delete = $this->get_by_recurring_id($recurring_id);
+
+                foreach ($appointments_to_delete as $appointment) {
+                    $this->delete($appointment['id']);
+                    $deleted_count++;
+                }
+                break;
+        }
+
+        return $deleted_count;
+    }
+
+    /**
      * Get a specific field value from the database.
      *
      * @param int $appointment_id Appointment ID.

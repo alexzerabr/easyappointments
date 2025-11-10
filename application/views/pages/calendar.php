@@ -127,7 +127,15 @@
 
 <?php component('working_plan_exceptions_modal'); ?>
 
+<?php component('recurring_series_modal'); ?>
+
 <?php end_section('content'); ?>
+
+<?php section('styles'); ?>
+
+<link rel="stylesheet" href="<?= asset_url('assets/css/recurring_appointments.css') ?>">
+
+<?php end_section('styles'); ?>
 
 <?php section('scripts'); ?>
 

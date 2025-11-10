@@ -204,6 +204,84 @@
 
                     <br>
 
+                    <!-- Recurring Appointment Section -->
+                    <fieldset>
+                        <h5 class="text-black-50 mb-3 fw-light">
+                            <?= lang('recurring_options') ?>
+                        </h5>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is-recurring" value="1">
+                                <label class="form-check-label" for="is-recurring">
+                                    <?= lang('recurring_appointment') ?>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="recurring-options" class="d-none">
+                            <!-- Specific Weekdays -->
+                            <div id="specific-weekdays-group" class="mb-3">
+                                <label class="form-label"><?= lang('select_weekdays') ?></label>
+                                <div class="weekday-checkboxes">
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input weekday-check" type="checkbox" value="1" id="weekday-1">
+                                        <label class="form-check-label" for="weekday-1"><?= lang('monday') ?></label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input weekday-check" type="checkbox" value="2" id="weekday-2">
+                                        <label class="form-check-label" for="weekday-2"><?= lang('tuesday') ?></label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input weekday-check" type="checkbox" value="3" id="weekday-3">
+                                        <label class="form-check-label" for="weekday-3"><?= lang('wednesday') ?></label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input weekday-check" type="checkbox" value="4" id="weekday-4">
+                                        <label class="form-check-label" for="weekday-4"><?= lang('thursday') ?></label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input weekday-check" type="checkbox" value="5" id="weekday-5">
+                                        <label class="form-check-label" for="weekday-5"><?= lang('friday') ?></label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input weekday-check" type="checkbox" value="6" id="weekday-6">
+                                        <label class="form-check-label" for="weekday-6"><?= lang('saturday') ?></label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input weekday-check" type="checkbox" value="7" id="weekday-7">
+                                        <label class="form-check-label" for="weekday-7"><?= lang('sunday') ?></label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Treatment Period -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="recurring-start-date" class="form-label">
+                                        <?= lang('treatment_start_date') ?>
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <input id="recurring-start-date" class="form-control">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="recurring-end-date" class="form-label">
+                                        <?= lang('treatment_end_date') ?>
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <input id="recurring-end-date" class="form-control">
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span id="recurring-preview-text"></span>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <br>
+
                     <fieldset>
                         <h5 class="text-black-50 mb-3 fw-light">
                             <?= lang('customer_details_title') ?>

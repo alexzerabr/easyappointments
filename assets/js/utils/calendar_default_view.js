@@ -1226,6 +1226,7 @@ App.Utils.CalendarDefaultView = (function () {
                         color: appointment.color,
                         data: appointment, // Store appointment data for later use.
                         display: 'block',
+                        className: appointment.is_recurring ? 'fc-recurring-event' : '',
                     };
 
                     calendarEventSource.push(appointmentEvent);

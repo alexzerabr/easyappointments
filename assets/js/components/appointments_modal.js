@@ -51,6 +51,13 @@ App.Components.AppointmentsModal = (function () {
     const $customField3 = $('#custom-field-3');
     const $customField4 = $('#custom-field-4');
     const $customField5 = $('#custom-field-5');
+    const $isRecurring = $('#is-recurring');
+    const $recurringOptions = $('#recurring-options');
+    const $specificWeekdaysGroup = $('#specific-weekdays-group');
+    const $weekdayChecks = $('.weekday-check');
+    const $recurringStartDate = $('#recurring-start-date');
+    const $recurringEndDate = $('#recurring-end-date');
+    const $recurringPreviewText = $('#recurring-preview-text');
 
     const moment = window.moment;
 
@@ -137,7 +144,10 @@ App.Components.AppointmentsModal = (function () {
             // Define success callback.
             const successCallback = () => {
                 // Display success message to the user.
-                App.Layouts.Backend.displayNotification(lang('appointment_saved'));
+                const message = $isRecurring.prop('checked')
+                    ? lang('recurring_appointment_created')
+                    : lang('appointment_saved');
+                App.Layouts.Backend.displayNotification(message);
 
                 // Close the modal dialog and refresh the calendar appointments.
                 $appointmentsModal.find('.alert').addClass('d-none');
@@ -146,14 +156,49 @@ App.Components.AppointmentsModal = (function () {
             };
 
             // Define error callback.
-            const errorCallback = () => {
-                $appointmentsModal.find('.modal-message').text(lang('service_communication_error'));
+            const errorCallback = (response) => {
+                let errorMessage = lang('service_communication_error');
+                
+                if (response && response.message) {
+                    errorMessage = response.message;
+                }
+                
+                $appointmentsModal.find('.modal-message').text(errorMessage);
                 $appointmentsModal.find('.modal-message').addClass('alert-danger').removeClass('d-none');
                 $appointmentsModal.find('.modal-body').scrollTop(0);
             };
 
-            // Save appointment data.
-            App.Http.Calendar.saveAppointment(appointment, customer, successCallback, errorCallback);
+            // Check if this is a recurring appointment
+            if ($isRecurring.prop('checked') && !appointment.id) {
+                // Save recurring appointment
+                const recurringData = getRecurringData();
+                
+                const url = App.Utils.Url.siteUrl('calendar/save_recurring_appointment');
+                
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: {
+                        csrf_token: vars('csrf_token'),
+                        recurring_appointment: recurringData,
+                        customer: customer,
+                    },
+                    dataType: 'json',
+                    success: (response) => {
+                        if (response.success) {
+                            successCallback();
+                        } else {
+                            errorCallback(response);
+                        }
+                    },
+                    error: () => {
+                        errorCallback();
+                    },
+                });
+            } else {
+                // Save regular appointment
+                App.Http.Calendar.saveAppointment(appointment, customer, successCallback, errorCallback);
+            }
         });
 
         /**
@@ -433,6 +478,30 @@ App.Components.AppointmentsModal = (function () {
             $customField4.val('');
             $customField5.val('');
         });
+
+        /**
+         * Event: Recurring Checkbox "Change"
+         */
+        $isRecurring.on('change', () => {
+            if ($isRecurring.prop('checked')) {
+                $recurringOptions.removeClass('d-none');
+                initializeRecurringDatePickers();
+            } else {
+                $recurringOptions.addClass('d-none');
+            }
+        });
+
+
+        /**
+         * Event: Weekday Checkboxes "Change"
+         */
+        $weekdayChecks.on('change', updateRecurringPreview);
+
+        /**
+         * Event: Recurring Dates "Change"
+         */
+        $recurringStartDate.on('change', updateRecurringPreview);
+        $recurringEndDate.on('change', updateRecurringPreview);
     }
 
     /**
@@ -443,7 +512,8 @@ App.Components.AppointmentsModal = (function () {
      */
     function resetModal() {
         // Empty form fields.
-        $appointmentsModal.find('input, textarea').val('');
+        $appointmentsModal.find('input:not([type="checkbox"]), textarea').val('');
+        $appointmentsModal.find('input[type="checkbox"]').prop('checked', false);
         $appointmentsModal.find('.modal-message').addClass('.d-none');
         $appointmentsModal.find('.is-invalid').removeClass('is-invalid');
 
@@ -560,6 +630,29 @@ App.Components.AppointmentsModal = (function () {
                 throw new Error(lang('start_date_before_end_error'));
             }
 
+            // Check recurring appointment requirements
+            if ($isRecurring.prop('checked')) {
+                // Check if at least one weekday is selected
+                if ($('.weekday-check:checked').length === 0) {
+                    $('.weekday-checkboxes').addClass('is-invalid');
+                    throw new Error(lang('select_at_least_one_weekday') || 'Please select at least one day of the week');
+                }
+
+                // Check if start and end dates are selected
+                const startDateObj = $recurringStartDate[0]._flatpickr;
+                const endDateObj = $recurringEndDate[0]._flatpickr;
+
+                if (!startDateObj || !startDateObj.selectedDates[0]) {
+                    $recurringStartDate.addClass('is-invalid');
+                    throw new Error(lang('select_start_date') || 'Please select a start date');
+                }
+
+                if (!endDateObj || !endDateObj.selectedDates[0]) {
+                    $recurringEndDate.addClass('is-invalid');
+                    throw new Error(lang('select_end_date') || 'Please select an end date');
+                }
+            }
+
             return true;
         } catch (error) {
             $appointmentsModal
@@ -569,6 +662,141 @@ App.Components.AppointmentsModal = (function () {
                 .removeClass('d-none');
             return false;
         }
+    }
+
+    /**
+     * Initialize recurring date pickers.
+     * Using DatePicker (not DateTimePicker) since we only need dates,
+     * the time comes from the appointment's start/end datetime fields.
+     */
+    function initializeRecurringDatePickers() {
+        if ($recurringStartDate[0]._flatpickr) {
+            return; // Already initialized
+        }
+
+        App.Utils.UI.initializeDatePicker($recurringStartDate, {
+            altInput: true,
+            altFormat: 'd/m/Y',
+            dateFormat: 'Y-m-d',
+        });
+
+        App.Utils.UI.initializeDatePicker($recurringEndDate, {
+            altInput: true,
+            altFormat: 'd/m/Y',
+            dateFormat: 'Y-m-d',
+        });
+    }
+
+    /**
+     * Update recurring preview text.
+     */
+    function updateRecurringPreview() {
+        const recurringData = getRecurringData();
+        
+        if (!recurringData.start_date || !recurringData.end_date) {
+            $recurringPreviewText.text(lang('select_dates_to_see_preview') || 'Select dates to see preview');
+            return;
+        }
+
+        // Call backend to get preview
+        const url = App.Utils.Url.siteUrl('calendar/preview_recurring_appointments');
+
+        const data = {
+            ...recurringData,
+            csrf_token: vars('csrf_token')
+        };
+
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: (response) => {
+                if (response.success && response.dates) {
+                    const count = response.dates.length;
+                    // Parse dates in YYYY-MM-DD format (as sent to backend)
+                    const start = moment(recurringData.start_date, 'YYYY-MM-DD').format('DD/MM/YYYY');
+                    const end = moment(recurringData.end_date, 'YYYY-MM-DD').format('DD/MM/YYYY');
+
+                    let previewText = `${count} ${lang('appointments_will_be_created')} `;
+                    previewText += `(${start} - ${end})`;
+
+                    $recurringPreviewText.text(previewText);
+                    
+                    if (response.conflicts && response.conflicts.length > 0) {
+                        $recurringPreviewText.append(
+                            ` - <strong class="text-warning">${response.conflicts.length} conflicts</strong>`
+                        );
+                    }
+                } else {
+                    $recurringPreviewText.text('Error generating preview');
+                }
+            },
+            error: () => {
+                $recurringPreviewText.text('Error generating preview');
+            },
+        });
+    }
+
+    /**
+     * Get recurring appointment data from form.
+     *
+     * @returns {Object} Recurring appointment data.
+     */
+    function getRecurringData() {
+        // Get dates from Flatpickr in YYYY-MM-DD format
+        const startDateObj = $recurringStartDate[0]._flatpickr;
+        const endDateObj = $recurringEndDate[0]._flatpickr;
+
+        // Always use specific_days type
+        const data = {
+            recurrence_type: 'specific_days',
+            start_date: startDateObj && startDateObj.selectedDates[0] ?
+                moment(startDateObj.selectedDates[0]).format('YYYY-MM-DD') : '',
+            end_date: endDateObj && endDateObj.selectedDates[0] ?
+                moment(endDateObj.selectedDates[0]).format('YYYY-MM-DD') : '',
+        };
+
+        // Get selected weekdays
+        const weekDays = [];
+        const $checkedBoxes = $('.weekday-check:checked');
+
+        console.log('Total weekday checkboxes:', $('.weekday-check').length);
+        console.log('Checked weekday checkboxes:', $checkedBoxes.length);
+
+        $checkedBoxes.each(function () {
+            const val = $(this).val();
+            console.log('Adding weekday:', val);
+            weekDays.push(val);
+        });
+
+        data.week_days = weekDays.join(',');
+        console.log('Final week_days string:', data.week_days);
+        console.log('Recurring data:', data); // Debug log
+
+        // Add appointment details from main form
+        // The recurring appointments will use the time and duration from the appointment form
+        // (Data / hora inicial and Data / hora final) - no need to define time separately
+        const startDateTimeObject = App.Utils.UI.getDateTimePickerValue($startDatetime);
+        if (startDateTimeObject) {
+            data.appointment_time = moment(startDateTimeObject).format('HH:mm:ss');
+        }
+
+        const endDateTimeObject = App.Utils.UI.getDateTimePickerValue($endDatetime);
+        if (endDateTimeObject && startDateTimeObject) {
+            const duration = moment.duration(moment(endDateTimeObject).diff(moment(startDateTimeObject)));
+            data.duration = Math.round(duration.asMinutes());
+        }
+
+        data.id_users_provider = $selectProvider.val();
+        data.id_users_customer = $customerId.val();
+        data.id_services = $selectService.val();
+        data.location = $appointmentLocation.val();
+        data.notes = $appointmentNotes.val();
+        data.color = $appointmentColor.val();
+        data.status = $appointmentStatus.val();
+
+        return data;
     }
 
     /**
