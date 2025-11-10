@@ -453,3 +453,4 @@ class Recurring_appointments_model extends EA_Model
     }
 }
 
+

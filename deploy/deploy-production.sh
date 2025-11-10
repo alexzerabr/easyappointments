@@ -711,7 +711,7 @@ smoke_test() {
 
 compose_cmd() {
     cd "$PROJECT_ROOT"
-    docker compose --env-file "$ENV_FILE" "$@"
+    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
 compose_up() {
@@ -1305,12 +1305,14 @@ main() {
         down)
             print_header
             ensure_prereqs
+            ensure_compose
             ensure_env
             compose_down
             ;;
         
         logs)
             ensure_prereqs
+            ensure_compose
             ensure_env
             compose_logs "$@"
             ;;
@@ -1318,6 +1320,7 @@ main() {
         health)
             print_header
             ensure_prereqs
+            ensure_compose
             ensure_env
             compose_health
             ;;
@@ -1325,6 +1328,7 @@ main() {
         update|pull)
             print_header
             ensure_prereqs
+            ensure_compose
             ensure_env
             compose_update
             ;;
@@ -1332,6 +1336,7 @@ main() {
         backup)
             print_header
             ensure_prereqs
+            ensure_compose
             ensure_env
             compose_backup
             ;;
