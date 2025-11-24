@@ -250,117 +250,55 @@ class Whatsapp_template_service
     public function get_available_placeholders(): array
     {
         return [
-            // English placeholders
             [
-                'group' => 'English Variables',
-                'placeholders' => [
-                    [
-                        'placeholder' => '{{client_name}}',
-                        'description' => 'Customer full name',
-                        'example' => 'John Doe',
-                    ],
-                    [
-                        'placeholder' => '{{first_name}}',
-                        'description' => 'Customer first name only',
-                        'example' => 'John',
-                    ],
-                    [
-                        'placeholder' => '{{phone}}',
-                        'description' => 'Customer phone number',
-                        'example' => '+5511999999999',
-                    ],
-                    [
-                        'placeholder' => '{{email}}',
-                        'description' => 'Customer email address',
-                        'example' => 'john.doe@example.com',
-                    ],
-                    [
-                        'placeholder' => '{{appointment_date}}',
-                        'description' => 'Appointment date',
-                        'example' => '2024-01-15',
-                    ],
-                    [
-                        'placeholder' => '{{appointment_time}}',
-                        'description' => 'Appointment time',
-                        'example' => '10:00',
-                    ],
-                    [
-                        'placeholder' => '{{service_name}}',
-                        'description' => 'Service name',
-                        'example' => 'Consultation',
-                    ],
-                    [
-                        'placeholder' => '{{location}}',
-                        'description' => 'Appointment location',
-                        'example' => 'Main Office',
-                    ],
-                    [
-                        'placeholder' => '{{company_name}}',
-                        'description' => 'Company name',
-                        'example' => 'My Company',
-                    ],
-                    [
-                        'placeholder' => '{{link}}',
-                        'description' => 'Appointment management link',
-                        'example' => 'https://example.com/appointments/book/abc123',
-                    ],
-                ],
+                'placeholder' => '{{nome_cliente}}',
+                'description' => 'Nome completo do cliente',
+                'example' => 'João Silva',
             ],
-            // Portuguese (BR) placeholders
             [
-                'group' => 'Variáveis em Português (BR)',
-                'placeholders' => [
-                    [
-                        'placeholder' => '{{nome_cliente}}',
-                        'description' => 'Nome completo do cliente',
-                        'example' => 'João Silva',
-                    ],
-                    [
-                        'placeholder' => '{{primeiro_nome}}',
-                        'description' => 'Apenas o primeiro nome do cliente',
-                        'example' => 'João',
-                    ],
-                    [
-                        'placeholder' => '{{telefone}}',
-                        'description' => 'Número de telefone do cliente',
-                        'example' => '+5511999999999',
-                    ],
-                    [
-                        'placeholder' => '{{e-mail}}',
-                        'description' => 'Endereço de e-mail do cliente',
-                        'example' => 'joao.silva@exemplo.com.br',
-                    ],
-                    [
-                        'placeholder' => '{{data_agendamento}}',
-                        'description' => 'Data do agendamento',
-                        'example' => '15/01/2024',
-                    ],
-                    [
-                        'placeholder' => '{{hora_agendamento}}',
-                        'description' => 'Horário do agendamento',
-                        'example' => '10:00',
-                    ],
-                    [
-                        'placeholder' => '{{nome_servico}}',
-                        'description' => 'Nome do serviço',
-                        'example' => 'Consulta',
-                    ],
-                    [
-                        'placeholder' => '{{local}}',
-                        'description' => 'Local do agendamento',
-                        'example' => 'Escritório Principal',
-                    ],
-                    [
-                        'placeholder' => '{{nome_empresa}}',
-                        'description' => 'Nome da empresa',
-                        'example' => 'Minha Empresa',
-                    ],
-                    [
-                        'placeholder' => '{{link}}',
-                        'description' => 'Link de gerenciamento do agendamento',
-                        'example' => 'https://exemplo.com.br/appointments/book/abc123',
-                    ],
-                ],
+                'placeholder' => '{{primeiro_nome}}',
+                'description' => 'Apenas o primeiro nome do cliente',
+                'example' => 'João',
+            ],
+            [
+                'placeholder' => '{{telefone}}',
+                'description' => 'Número de telefone do cliente',
+                'example' => '+5511999999999',
+            ],
+            [
+                'placeholder' => '{{e-mail}}',
+                'description' => 'Endereço de e-mail do cliente',
+                'example' => 'joao.silva@exemplo.com.br',
+            ],
+            [
+                'placeholder' => '{{data_agendamento}}',
+                'description' => 'Data do agendamento',
+                'example' => '15/01/2024',
+            ],
+            [
+                'placeholder' => '{{hora_agendamento}}',
+                'description' => 'Horário do agendamento',
+                'example' => '10:00',
+            ],
+            [
+                'placeholder' => '{{nome_servico}}',
+                'description' => 'Nome do serviço',
+                'example' => 'Consulta',
+            ],
+            [
+                'placeholder' => '{{local}}',
+                'description' => 'Local do agendamento',
+                'example' => 'Escritório Principal',
+            ],
+            [
+                'placeholder' => '{{nome_empresa}}',
+                'description' => 'Nome da empresa',
+                'example' => 'Minha Empresa',
+            ],
+            [
+                'placeholder' => '{{link}}',
+                'description' => 'Link de gerenciamento do agendamento',
+                'example' => 'https://exemplo.com.br/appointments/book/abc123',
             ],
         ];
     }
