@@ -960,10 +960,11 @@ compose_update() {
     
     echo ""
     log_info "Running database migrations..."
-    if compose_cmd exec -T php-fpm php patch.php migration latest 2>&1 | grep -qE "completed|No new"; then
+    if compose_cmd exec -T php-fpm php index.php console migrate 2>&1 | tee /tmp/migration-output.log; then
         log_ok "Migrations completed"
     else
-        log_warn "Migration output unclear, check manually"
+        log_error "Migrations failed - check /tmp/migration-output.log"
+        log_warn "You may need to run manually: docker compose exec php-fpm php index.php console migrate"
     fi
     
     echo ""

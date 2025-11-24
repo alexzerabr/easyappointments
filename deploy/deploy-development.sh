@@ -265,10 +265,10 @@ setup_config() {
 
 setup_dependencies() {
     log "INFO" "Verificando dependências do Composer..."
-    
+
     local needs_install=false
     local reason=""
-    
+
     # Verifica se diretório vendor existe
     if [ ! -d "vendor" ]; then
         needs_install=true
@@ -276,67 +276,145 @@ setup_dependencies() {
     else
         # Verifica se vendor está completo checando pacotes críticos
         local missing_packages=()
-        
+
         if [ ! -d "vendor/ralouphie/getallheaders" ]; then
             missing_packages+=("ralouphie/getallheaders")
         fi
-        
+
         if [ ! -d "vendor/google/apiclient" ]; then
             missing_packages+=("google/apiclient")
         fi
-        
-        if [ ! -d "vendor/sabre/dav" ]; then
-            missing_packages+=("sabre/dav")
+
+        if [ ! -d "vendor/sabre/vobject" ]; then
+            missing_packages+=("sabre/vobject")
         fi
-        
+
+        if [ ! -d "vendor/phpmailer/phpmailer" ]; then
+            missing_packages+=("phpmailer/phpmailer")
+        fi
+
         if [ ! -f "vendor/autoload.php" ]; then
             missing_packages+=("autoload.php")
         fi
-        
+
         # Se algum pacote crítico está faltando, reinstala tudo
         if [ ${#missing_packages[@]} -gt 0 ]; then
             needs_install=true
             reason="Pacotes críticos ausentes: ${missing_packages[*]}"
-            
+
             log "WARN" "Vendor corrompido ou incompleto!"
             log "WARN" "Faltando: ${missing_packages[*]}"
             log "INFO" "Removendo vendor corrompido..."
-            
+
             # Remove vendor corrompido usando Docker para evitar problemas de permissão
             docker run --rm -v "$ROOT_DIR":/app -w /app alpine:3.18 rm -rf vendor 2>/dev/null || \
             sudo rm -rf vendor 2>/dev/null || \
             rm -rf vendor 2>/dev/null || true
         fi
     fi
-    
+
     # Instala ou reinstala dependências se necessário
     if [ "$needs_install" = true ]; then
         log "INFO" "$reason"
         log "INFO" "Instalando dependências do Composer (pode levar 1-2 minutos)..."
-        
-        # Aguarda container PHP estar pronto
-        sleep 3
-        
+
+        # Aguarda container PHP estar realmente pronto
+        log "INFO" "Aguardando container PHP ficar completamente pronto..."
+        sleep 8
+
         # Remove logs antigos do Composer antes de criar novo
         rm -f /tmp/composer-install-*.log 2>/dev/null || true
-        
-        # Tenta instalar dependências
+
+        # Tenta instalar dependências com retry logic
         local composer_log="/tmp/composer-install-$(date +%Y%m%d-%H%M%S).log"
-        if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T easyappointments-dev-php composer install --no-interaction 2>&1 | tee "$composer_log" | grep -E "^(Installing|Generating)"; then
-            log "SUCCESS" "Dependências do Composer instaladas"
-            
-            # Valida instalação
+        local max_attempts=3
+        local attempt=1
+        local composer_success=false
+
+        while [ $attempt -le $max_attempts ]; do
+            log "INFO" "Tentativa $attempt de $max_attempts: Executando composer install..."
+
+            # Executa composer e salva código de saída
+            # Usa set +e temporariamente para não sair em caso de erro
+            set +e
+            docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T easyappointments-dev-php \
+                composer install --no-interaction --prefer-dist --optimize-autoloader \
+                > "$composer_log" 2>&1
+            local composer_exit_code=$?
+            set -e
+
+            # Mostra saída no console (apenas linhas importantes)
+            grep -E "^(Installing|Downloading|Generating|Package operations:|  -)" "$composer_log" 2>/dev/null || true
+
+            # Verifica se composer teve sucesso
+            if [ $composer_exit_code -eq 0 ]; then
+                # Valida que vendor foi criado e tem conteúdo
+                if [ -d "vendor" ] && [ -f "vendor/autoload.php" ]; then
+                    composer_success=true
+                    log "SUCCESS" "Dependências do Composer instaladas com sucesso"
+                    break
+                else
+                    log "WARN" "Composer retornou sucesso mas vendor está incompleto"
+                fi
+            else
+                log "WARN" "Composer retornou código de erro: $composer_exit_code"
+
+                # Mostra últimas linhas do log se houver erro
+                log "INFO" "Últimas linhas do log:"
+                tail -n 10 "$composer_log" 2>/dev/null || true
+            fi
+
+            # Se não foi a última tentativa, aguarda antes de tentar novamente
+            if [ $attempt -lt $max_attempts ]; then
+                local wait_time=$((attempt * 5))
+                log "INFO" "Aguardando ${wait_time}s antes de tentar novamente..."
+                sleep $wait_time
+            fi
+
+            attempt=$((attempt + 1))
+        done
+
+        # Verifica resultado final
+        if [ "$composer_success" = true ]; then
+            # Valida instalação detalhada
             local vendor_count=$(ls -1 vendor/ 2>/dev/null | wc -l)
-            log "INFO" "Pacotes instalados: $vendor_count"
-            
+            log "INFO" "Pacotes no vendor: $vendor_count"
+
+            # Verifica pacotes críticos novamente
+            local all_critical_present=true
+            if [ ! -d "vendor/ralouphie/getallheaders" ]; then
+                log "WARN" "Pacote crítico ausente: ralouphie/getallheaders"
+                all_critical_present=false
+            fi
+            if [ ! -d "vendor/google/apiclient" ]; then
+                log "WARN" "Pacote crítico ausente: google/apiclient"
+                all_critical_present=false
+            fi
+            if [ ! -d "vendor/sabre/vobject" ]; then
+                log "WARN" "Pacote crítico ausente: sabre/vobject"
+                all_critical_present=false
+            fi
+            if [ ! -d "vendor/phpmailer/phpmailer" ]; then
+                log "WARN" "Pacote crítico ausente: phpmailer/phpmailer"
+                all_critical_present=false
+            fi
+
+            if [ "$all_critical_present" = true ]; then
+                log "SUCCESS" "Todos os pacotes críticos presentes"
+            else
+                log "WARN" "Alguns pacotes críticos ainda estão faltando"
+                log "INFO" "Execute manualmente: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE exec easyappointments-dev-php composer install"
+                return 1
+            fi
+
             if [ "$vendor_count" -lt 20 ]; then
                 log "WARN" "Vendor parece incompleto (apenas $vendor_count pacotes)"
             fi
         else
-            log "ERROR" "Falha ao instalar dependências do Composer"
+            log "ERROR" "Falha ao instalar dependências do Composer após $max_attempts tentativas"
             log "INFO" "Log detalhado: $composer_log"
             log "INFO" "Execute manualmente: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE exec easyappointments-dev-php composer install"
-            
+
             # Não falha o script, mas avisa
             return 1
         fi
@@ -349,29 +427,38 @@ setup_dependencies() {
 
 ensure_storage_permissions() {
     log "INFO" "Verificando permissões do diretório storage..."
-    
+
     # Verifica se containers estão rodando
     if ! docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q easyappointments-dev-php &>/dev/null; then
         log "WARN" "Container PHP não está rodando, pulando verificação de permissões"
         return 0
     fi
-    
-    # Ajusta permissões através do container para evitar problemas de ownership
-    local dirs=(
-        "/var/www/html/storage/sessions"
-        "/var/www/html/storage/cache"
-        "/var/www/html/storage/logs"
-        "/var/www/html/storage/uploads"
-        "/var/www/html/storage/backups"
-    )
-    
-    for dir in "${dirs[@]}"; do
-        if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T easyappointments-dev-php test -d "$dir" 2>/dev/null; then
-            docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T easyappointments-dev-php chmod -R 777 "$dir" 2>/dev/null || true
+
+    # Aplica permissões 777 recursivamente no diretório storage inteiro
+    # Isso é necessário para que o PHP-FPM (rodando como www-data) possa escrever
+    # em sessões, cache, logs, uploads e backups
+    log "INFO" "Aplicando permissões 777 em /var/www/html/storage..."
+
+    if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T easyappointments-dev-php chmod -R 777 /var/www/html/storage 2>&1 | grep -v "^$"; then
+        log "SUCCESS" "Permissões do storage configuradas (777 para dev)"
+    else
+        # Tenta método alternativo usando chown se chmod falhar
+        log "WARN" "chmod falhou, tentando método alternativo..."
+        if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T easyappointments-dev-php sh -c "chown -R www-data:www-data /var/www/html/storage && chmod -R 777 /var/www/html/storage" 2>/dev/null; then
+            log "SUCCESS" "Permissões do storage configuradas via chown+chmod"
+        else
+            log "WARN" "Não foi possível ajustar permissões automaticamente"
+            log "INFO" "Execute manualmente: docker exec easyappointments-dev-php chmod -R 777 /var/www/html/storage"
         fi
-    done
-    
-    log "SUCCESS" "Permissões do storage configuradas (777 para dev)"
+    fi
+
+    # Verifica se www-data consegue escrever no diretório de sessões
+    if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T easyappointments-dev-php su -s /bin/sh www-data -c "touch /var/www/html/storage/sessions/.test 2>/dev/null && rm /var/www/html/storage/sessions/.test 2>/dev/null"; then
+        log "SUCCESS" "Teste de escrita como www-data: OK"
+    else
+        log "ERROR" "www-data não consegue escrever em storage/sessions!"
+        log "WARN" "Isso causará problemas de login e sessão"
+    fi
 }
 
 # =============================================================================

@@ -174,12 +174,20 @@ if [ -f "package.json" ]; then
     fi
 fi
 
-# Set proper permissions for storage
+# Set proper permissions for storage (777 for development to allow PHP-FPM writes)
 echo -e "${BLUE}🔐 Setting storage permissions...${NC}"
-find storage -type d -exec chmod 755 {} \; 2>/dev/null || true
-find storage -type f -exec chmod 644 {} \; 2>/dev/null || true
-chmod -R g+w storage 2>/dev/null || true
-echo -e "${GREEN}✅ Storage permissions set${NC}"
+# In development, we use 777 to allow www-data (PHP-FPM user) to write
+# to sessions, cache, logs, uploads, and backups directories
+chmod -R 777 storage 2>/dev/null || true
+echo -e "${GREEN}✅ Storage permissions set (777 for development)${NC}"
+
+# Verify www-data can write to sessions directory
+if su -s /bin/sh www-data -c "touch storage/sessions/.test 2>/dev/null && rm storage/sessions/.test 2>/dev/null"; then
+    echo -e "${GREEN}✅ Verified: www-data can write to storage/sessions${NC}"
+else
+    echo -e "${YELLOW}⚠️  Warning: www-data cannot write to storage/sessions${NC}"
+    echo -e "${YELLOW}   This may cause login/session issues${NC}"
+fi
 
 # Display startup information
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
