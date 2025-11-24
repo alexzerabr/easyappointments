@@ -20,160 +20,75 @@ class Template_variable_service {
      */
     public function get_catalog() {
         return [
-            // English Variables
-            [
-                'key' => 'client_name',
-                'display' => '{{client_name}}',
-                'example' => 'Maria Silva',
-                'source' => 'client',
-                'description' => 'Nome completo do cliente / Customer full name',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'first_name',
-                'display' => '{{first_name}}',
-                'example' => 'Maria',
-                'source' => 'client',
-                'description' => 'Primeiro nome do cliente / Customer first name',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'phone',
-                'display' => '{{phone}}',
-                'example' => '+55 11 91234-5678',
-                'source' => 'client',
-                'description' => 'Telefone do cliente / Customer phone',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'email',
-                'display' => '{{email}}',
-                'example' => 'maria@example.com',
-                'source' => 'client',
-                'description' => 'E-mail do cliente / Customer email',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'appointment_date',
-                'display' => '{{appointment_date}}',
-                'example' => '2025-10-15',
-                'source' => 'appointment',
-                'description' => 'Data do agendamento / Appointment date',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'appointment_time',
-                'display' => '{{appointment_time}}',
-                'example' => '14:30',
-                'source' => 'appointment',
-                'description' => 'Horário do agendamento / Appointment time',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'service_name',
-                'display' => '{{service_name}}',
-                'example' => 'Consulta Clínica',
-                'source' => 'service',
-                'description' => 'Nome do serviço / Service name',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'location',
-                'display' => '{{location}}',
-                'example' => 'Av. Paulista, 1000',
-                'source' => 'location',
-                'description' => 'Local do atendimento / Appointment location',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'company_name',
-                'display' => '{{company_name}}',
-                'example' => $this->get_company_name(),
-                'source' => 'company',
-                'description' => 'Nome da empresa / Company name',
-                'group' => 'English'
-            ],
-            [
-                'key' => 'link',
-                'display' => '{{link}}',
-                'example' => 'https://exemplo.com/confirmar/abc',
-                'source' => 'app',
-                'description' => 'Link do agendamento / Appointment link',
-                'group' => 'English'
-            ],
-
-            // Portuguese (BR) Variables
             [
                 'key' => 'nome_cliente',
                 'display' => '{{nome_cliente}}',
                 'example' => 'Maria Silva',
                 'source' => 'client',
-                'description' => 'Nome completo do cliente',
-                'group' => 'Português (BR)'
+                'description' => 'Nome completo do cliente'
             ],
             [
                 'key' => 'primeiro_nome',
                 'display' => '{{primeiro_nome}}',
                 'example' => 'Maria',
                 'source' => 'client',
-                'description' => 'Primeiro nome do cliente',
-                'group' => 'Português (BR)'
+                'description' => 'Primeiro nome do cliente'
             ],
             [
                 'key' => 'telefone',
                 'display' => '{{telefone}}',
                 'example' => '+55 11 91234-5678',
                 'source' => 'client',
-                'description' => 'Telefone do cliente',
-                'group' => 'Português (BR)'
+                'description' => 'Telefone do cliente'
             ],
             [
                 'key' => 'e-mail',
                 'display' => '{{e-mail}}',
                 'example' => 'maria@example.com',
                 'source' => 'client',
-                'description' => 'E-mail do cliente',
-                'group' => 'Português (BR)'
+                'description' => 'E-mail do cliente'
             ],
             [
                 'key' => 'data_agendamento',
                 'display' => '{{data_agendamento}}',
                 'example' => '15/10/2025',
                 'source' => 'appointment',
-                'description' => 'Data do agendamento',
-                'group' => 'Português (BR)'
+                'description' => 'Data do agendamento'
             ],
             [
                 'key' => 'hora_agendamento',
                 'display' => '{{hora_agendamento}}',
                 'example' => '14:30',
                 'source' => 'appointment',
-                'description' => 'Horário do agendamento',
-                'group' => 'Português (BR)'
+                'description' => 'Horário do agendamento'
             ],
             [
                 'key' => 'nome_servico',
                 'display' => '{{nome_servico}}',
                 'example' => 'Consulta Clínica',
                 'source' => 'service',
-                'description' => 'Nome do serviço',
-                'group' => 'Português (BR)'
+                'description' => 'Nome do serviço'
             ],
             [
                 'key' => 'local',
                 'display' => '{{local}}',
                 'example' => 'Av. Paulista, 1000',
                 'source' => 'location',
-                'description' => 'Local do atendimento',
-                'group' => 'Português (BR)'
+                'description' => 'Local do atendimento'
             ],
             [
                 'key' => 'nome_empresa',
                 'display' => '{{nome_empresa}}',
                 'example' => $this->get_company_name(),
                 'source' => 'company',
-                'description' => 'Nome da empresa',
-                'group' => 'Português (BR)'
+                'description' => 'Nome da empresa'
+            ],
+            [
+                'key' => 'link',
+                'display' => '{{link}}',
+                'example' => 'https://exemplo.com/confirmar/abc',
+                'source' => 'app',
+                'description' => 'Link do agendamento'
             ]
         ];
     }
