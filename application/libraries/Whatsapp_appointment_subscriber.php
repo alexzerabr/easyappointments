@@ -151,7 +151,19 @@ class Whatsapp_appointment_subscriber
             'appointment_notes' => $appointment['notes'] ?? '',
             'appointment_location' => $service['location'] ?? '',
             'company_name' => $this->get_company_name(),
-            'appointment_link' => $this->generate_appointment_link($appointment['hash'] ?? '')
+            'appointment_link' => $this->generate_appointment_link($appointment['hash'] ?? ''),
+
+            // Portuguese keys (required for templates)
+            'nome_cliente' => trim($customer['first_name'] . ' ' . $customer['last_name']),
+            'primeiro_nome' => $customer['first_name'],
+            'telefone' => $customer['phone_number'],
+            'e-mail' => $customer['email'] ?? '',
+            'data_agendamento' => date('d/m/Y', strtotime($appointment['start_datetime'])),
+            'hora_agendamento' => date('H:i', strtotime($appointment['start_datetime'])),
+            'nome_servico' => $service['name'] ?? '',
+            'local' => $service['location'] ?? '',
+            'nome_empresa' => $this->get_company_name(),
+            'link' => $this->generate_appointment_link($appointment['hash'] ?? '')
         ];
     }
 
