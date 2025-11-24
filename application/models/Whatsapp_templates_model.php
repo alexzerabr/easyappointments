@@ -306,6 +306,40 @@ class Whatsapp_templates_model extends EA_Model
     }
 
     /**
+     * Get valid placeholders for both English and Portuguese.
+     *
+     * @return array Returns array of valid placeholders in both languages.
+     */
+    protected function get_valid_placeholders(): array
+    {
+        return [
+            // English placeholders
+            '{{client_name}}',
+            '{{first_name}}',
+            '{{phone}}',
+            '{{email}}',
+            '{{appointment_date}}',
+            '{{appointment_time}}',
+            '{{service_name}}',
+            '{{location}}',
+            '{{link}}',
+            '{{company_name}}',
+
+            // Portuguese (BR) placeholders
+            '{{nome_cliente}}',
+            '{{primeiro_nome}}',
+            '{{telefone}}',
+            '{{e-mail}}',
+            '{{data_agendamento}}',
+            '{{hora_agendamento}}',
+            '{{nome_servico}}',
+            '{{local}}',
+            '{{link}}', // same in both languages
+            '{{nome_empresa}}',
+        ];
+    }
+
+    /**
      * Validate template placeholders.
      *
      * @param string $body Template body.
@@ -315,16 +349,7 @@ class Whatsapp_templates_model extends EA_Model
     public function validate_placeholders(string $body): array
     {
         $errors = [];
-        $valid_placeholders = [
-            '{{client_name}}',
-            '{{phone}}',
-            '{{appointment_date}}',
-            '{{appointment_time}}',
-            '{{service_name}}',
-            '{{location}}',
-            '{{link}}',
-            '{{company_name}}',
-        ];
+        $valid_placeholders = $this->get_valid_placeholders();
 
         // Find all placeholders in the body
         preg_match_all('/\{\{[^}]+\}\}/', $body, $matches);
@@ -366,7 +391,7 @@ class Whatsapp_templates_model extends EA_Model
         $appointment_date = date('Y-m-d', strtotime($appointment['start_datetime']));
         $appointment_time = date('H:i', strtotime($appointment['start_datetime']));
 
-        if ($language === 'pt-BR') {
+        if ($language === 'pt-BR' || $language === 'portuguese-br') {
             $appointment_date = date('d/m/Y', strtotime($appointment['start_datetime']));
         }
 
@@ -374,9 +399,18 @@ class Whatsapp_templates_model extends EA_Model
         $CI->load->model('settings_model');
         $company_name = $CI->settings_model->get_setting('company_name', '');
 
-        $placeholders = [
-            '{{client_name}}' => $customer['first_name'] . ' ' . $customer['last_name'],
-            '{{phone}}' => $customer['phone_number'] ?? '',
+        // Extract first name from customer
+        $full_name = $customer['first_name'] . ' ' . $customer['last_name'];
+        $first_name = $customer['first_name'];
+        $email = $customer['email'] ?? '';
+        $phone = $customer['phone_number'] ?? '';
+
+        // English placeholders
+        $placeholders_en = [
+            '{{client_name}}' => $full_name,
+            '{{first_name}}' => $first_name,
+            '{{phone}}' => $phone,
+            '{{email}}' => $email,
             '{{appointment_date}}' => $appointment_date,
             '{{appointment_time}}' => $appointment_time,
             '{{service_name}}' => $service['name'] ?? '',
@@ -385,6 +419,24 @@ class Whatsapp_templates_model extends EA_Model
             '{{company_name}}' => $company_name,
         ];
 
+        // Portuguese (BR) placeholders - same values, different keys
+        $placeholders_pt = [
+            '{{nome_cliente}}' => $full_name,
+            '{{primeiro_nome}}' => $first_name,
+            '{{telefone}}' => $phone,
+            '{{e-mail}}' => $email,
+            '{{data_agendamento}}' => $appointment_date,
+            '{{hora_agendamento}}' => $appointment_time,
+            '{{nome_servico}}' => $service['name'] ?? '',
+            '{{local}}' => $appointment['location'] ?? $service['location'] ?? '',
+            '{{link}}' => site_url('appointments/book/' . $appointment['hash']),
+            '{{nome_empresa}}' => $company_name,
+        ];
+
+        // Merge both placeholder sets (supports bilingual templates)
+        $placeholders = array_merge($placeholders_en, $placeholders_pt);
+
+        // Replace all placeholders
         foreach ($placeholders as $placeholder => $value) {
             $body = str_replace($placeholder, $value, $body);
         }
