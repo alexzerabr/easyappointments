@@ -21,7 +21,6 @@ class Whatsapp_appointment_subscriber
         $this->CI->load->model('services_model');
         $this->CI->load->model('providers_model');
         $this->CI->load->library('wppconnect_service');
-        $this->CI->load->library('template_variable_service');
     }
 
     /**
@@ -67,9 +66,19 @@ class Whatsapp_appointment_subscriber
                 return;
             }
 
-            // Montar contexto e renderizar mensagem
-            $context = $this->build_context($appointment, $customer);
-            $message = $this->CI->template_variable_service->render_template($template['body'], $context);
+            // Obter dados completos para renderização
+            $service = $this->CI->services_model->get_row($appointment['id_services']);
+            $provider = $this->CI->providers_model->get_row($appointment['id_users_provider']);
+
+            // Renderizar mensagem usando o mesmo método do Whatsapp_sender
+            $message = $this->CI->whatsapp_templates_model->render_template(
+                $template,
+                $appointment,
+                $customer,
+                $service,
+                $provider,
+                $appointment['language'] ?? 'pt-BR'
+            );
 
             // Verificar se houve mudança de horário
             $time_changed = false;
@@ -126,46 +135,8 @@ class Whatsapp_appointment_subscriber
 
     /**
      * Construir contexto para renderização do template
+     * @deprecated Método removido - agora usa Whatsapp_templates_model->render_template() diretamente
      */
-    private function build_context(array $appointment, array $customer): array
-    {
-        // Obter dados adicionais
-        $service = $this->CI->services_model->get_row($appointment['id_services']);
-        $provider = $this->CI->providers_model->get_row($appointment['id_users_provider']);
-
-        return [
-            'client_name' => trim($customer['first_name'] . ' ' . $customer['last_name']),
-            'client_first_name' => $customer['first_name'],
-            'client_last_name' => $customer['last_name'],
-            'client_phone' => $customer['phone_number'],
-            'client_email' => $customer['email'] ?? '',
-            'appointment_date' => date('d/m/Y', strtotime($appointment['start_datetime'])),
-            'appointment_time' => date('H:i', strtotime($appointment['start_datetime'])),
-            'appointment_datetime' => date('d/m/Y H:i', strtotime($appointment['start_datetime'])),
-            'service_name' => $service['name'] ?? '',
-            'service_duration' => $service['duration'] ?? '',
-            'provider_name' => trim(($provider['first_name'] ?? '') . ' ' . ($provider['last_name'] ?? '')),
-            'provider_first_name' => $provider['first_name'] ?? '',
-            'provider_last_name' => $provider['last_name'] ?? '',
-            'appointment_status' => $appointment['status'],
-            'appointment_notes' => $appointment['notes'] ?? '',
-            'appointment_location' => $service['location'] ?? '',
-            'company_name' => $this->get_company_name(),
-            'appointment_link' => $this->generate_appointment_link($appointment['hash'] ?? ''),
-
-            // Portuguese keys (required for templates)
-            'nome_cliente' => trim($customer['first_name'] . ' ' . $customer['last_name']),
-            'primeiro_nome' => $customer['first_name'],
-            'telefone' => $customer['phone_number'],
-            'e-mail' => $customer['email'] ?? '',
-            'data_agendamento' => date('d/m/Y', strtotime($appointment['start_datetime'])),
-            'hora_agendamento' => date('H:i', strtotime($appointment['start_datetime'])),
-            'nome_servico' => $service['name'] ?? '',
-            'local' => $service['location'] ?? '',
-            'nome_empresa' => $this->get_company_name(),
-            'link' => $this->generate_appointment_link($appointment['hash'] ?? '')
-        ];
-    }
 
     /**
      * Obter nome da empresa
