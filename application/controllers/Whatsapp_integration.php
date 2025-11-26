@@ -1132,25 +1132,11 @@ class Whatsapp_integration extends EA_Controller
             // Enviar mensagem
             $response = $this->wppconnect_service->send_message($phone, $message);
 
-            // Atualizar log conforme resposta do WPPConnect
+            // SIMPLIFIED LOGIC: HTTP 2xx = SUCCESS, period.
+            // WPPConnect may return HTTP 200 without messageId, but message IS delivered.
+            // This aligns with the fix in Wppconnect_service.php (no retry on HTTP 2xx)
             $http = (int)($response['_http_status'] ?? 0);
-            $statusField = strtolower((string)($response['status'] ?? ''));
-            $deliveredMarkers = [
-                'success', 'ok'
-            ];
-            $hasMessageId = isset($response['messageId']) || isset($response['id']) || isset($response['key']['id']);
-
-            // CORREÇÃO: Considerar sucesso se HTTP 2xx, mesmo sem messageId
-            // O WPPConnect pode retornar HTTP 200 mas dar erro interno ao buscar metadata da mensagem
-            // Nesses casos, a mensagem FOI ENTREGUE, mas o servidor teve erro secundário
-            $httpSuccess = ($http >= 200 && $http < 300);
-            $hasExplicitSuccess = $hasMessageId || in_array($statusField, $deliveredMarkers, true);
-
-            // Se HTTP 2xx E não tem erro explícito na resposta, considerar sucesso
-            $hasExplicitError = !empty($response['error']) ||
-                               (!empty($response['message']) && stripos($response['message'], 'error') !== false);
-
-            $isSuccess = $httpSuccess && ($hasExplicitSuccess || !$hasExplicitError);
+            $isSuccess = ($http >= 200 && $http < 300);
 
             $this->whatsapp_message_logs_model->update_status(
                 $hash,
@@ -1163,27 +1149,10 @@ class Whatsapp_integration extends EA_Controller
                 ]
             );
 
-            // Log detalhado para debugging
-            log_message('info', sprintf(
-                'Test message send: hash=%s, http=%d, hasMessageId=%s, hasExplicitSuccess=%s, hasExplicitError=%s, isSuccess=%s',
-                substr($hash, 0, 8) . '...',
-                $http,
-                $hasMessageId ? 'true' : 'false',
-                $hasExplicitSuccess ? 'true' : 'false',
-                $hasExplicitError ? 'true' : 'false',
-                $isSuccess ? 'true' : 'false'
-            ));
-
             json_response([
                 'success' => $isSuccess,
                 'message' => $isSuccess ? 'Mensagem de teste enviada com sucesso' : 'Falha ao enviar mensagem de teste',
-                'response' => $response,
-                'debug' => [
-                    'http_status' => $http,
-                    'has_message_id' => $hasMessageId,
-                    'has_explicit_success' => $hasExplicitSuccess,
-                    'has_explicit_error' => $hasExplicitError,
-                ]
+                'response' => $response
             ]);
 
         } catch (Throwable $e) {

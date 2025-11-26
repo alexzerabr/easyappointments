@@ -663,10 +663,18 @@ class Wppconnect_service
                     throw new RuntimeException('Invalid JSON response: ' . json_last_error_msg());
                 }
 
+                // CRITICAL FIX: HTTP 2xx = SUCCESS, do NOT retry
+                // WPPConnect may return HTTP 200 without messageId but message IS delivered
+                // This prevents duplicate messages caused by unnecessary retries
+                if ($http_code >= 200 && $http_code < 300) {
+                    // Success response - exit retry loop immediately
+                    break;
+                }
+
                 if ($http_code >= 400) {
                     $error_message = $decoded_response['message'] ?? 'HTTP ' . $http_code . ' error';
-                    
-                    // Check if this is a retryable error
+
+                    // Check if this is a retryable error (only 5xx, timeouts, rate limits)
                     if ($this->is_retryable_error($http_code, $error_message) && $attempt < $max_retries) {
                         log_message('warning', "WPPConnect request failed (attempt {$attempt}/{$max_retries}): HTTP {$http_code} - {$error_message}. Retrying...");
                         $last_exception = new RuntimeException($error_message, $http_code);
@@ -674,7 +682,7 @@ class Wppconnect_service
                         $attempt++;
                         continue;
                     }
-                    
+
                     throw new RuntimeException($error_message, $http_code);
                 }
 
@@ -717,14 +725,24 @@ class Wppconnect_service
      */
     private function is_retryable_error(int $http_code, string $error_message): bool
     {
-        // Retry on temporary server errors
-        $retryable_codes = [500, 502, 503, 504, 408, 429];
-        
-        if (in_array($http_code, $retryable_codes)) {
+        // CRITICAL: Never retry success responses (HTTP 2xx)
+        if ($http_code >= 200 && $http_code < 300) {
+            return false;
+        }
+
+        // Never retry most client errors (4xx) - only specific cases
+        if ($http_code >= 400 && $http_code < 500) {
+            // Only retry rate limit (429) and request timeout (408)
+            return in_array($http_code, [408, 429], true);
+        }
+
+        // Always retry server errors (5xx)
+        $server_error_codes = [500, 502, 503, 504];
+        if (in_array($http_code, $server_error_codes, true)) {
             return true;
         }
-        
-        // Retry on specific error messages
+
+        // Retry on connection errors (not HTTP errors)
         $retryable_messages = [
             'timeout',
             'connection refused',
@@ -732,13 +750,13 @@ class Wppconnect_service
             'network unreachable',
             'service unavailable'
         ];
-        
+
         foreach ($retryable_messages as $pattern) {
             if (stripos($error_message, $pattern) !== false) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
