@@ -65,5 +65,12 @@ $db['default']['swap_pre'] = '';
 $db['default']['autoinit'] = TRUE;
 $db['default']['stricton'] = FALSE;
 
+// Set MySQL session timezone to match application timezone (-03:00 = America/Sao_Paulo)
+// This ensures consistency between PHP and MySQL for datetime operations
+// Note: This does not affect how existing UTC data is stored, only how new timestamps are handled
+$db['default']['options'] = [
+    PDO::MYSQL_ATTR_INIT_COMMAND => "SET time_zone = '-03:00'"
+];
+
 /* End of file database.php */
 /* Location: ./application/config/database.php */

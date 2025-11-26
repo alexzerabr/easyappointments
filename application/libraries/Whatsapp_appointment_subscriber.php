@@ -52,6 +52,12 @@ class Whatsapp_appointment_subscriber
                 return;
             }
 
+            // Verificar se é agendamento recorrente e se não é o primeiro da série
+            if (!empty($appointment['id_recurring_appointment']) && !$this->is_first_in_recurring_series($appointment)) {
+                log_message('info', 'Skipping WhatsApp message for non-first recurring appointment: ' . $event->appointment_id);
+                return;
+            }
+
             // Obter dados do cliente
             $customer = $this->CI->customers_model->get_row($appointment['id_users_customer']);
             if (!$customer || empty($customer['phone_number'])) {
@@ -250,11 +256,43 @@ class Whatsapp_appointment_subscriber
         if (strlen($phone) < 8) {
             return $phone;
         }
-        
+
         $prefix = substr($phone, 0, 3);
         $suffix = substr($phone, -4);
         $masked = str_repeat('*', strlen($phone) - 7);
-        
+
         return $prefix . $masked . $suffix;
+    }
+
+    /**
+     * Verificar se o agendamento é o primeiro de uma série recorrente
+     *
+     * @param array $appointment Dados do agendamento
+     * @return bool True se é o primeiro da série ou se não faz parte de série recorrente
+     */
+    private function is_first_in_recurring_series(array $appointment): bool
+    {
+        // Se não tem id_recurring_appointment, não é série recorrente
+        if (empty($appointment['id_recurring_appointment'])) {
+            return true;
+        }
+
+        // Buscar o primeiro agendamento da série (ordenado por start_datetime)
+        $first_appointment = $this->CI->db
+            ->select('id')
+            ->from('appointments')
+            ->where('id_recurring_appointment', $appointment['id_recurring_appointment'])
+            ->order_by('start_datetime', 'ASC')
+            ->limit(1)
+            ->get()
+            ->row_array();
+
+        // Se não encontrou ou se é o primeiro, retorna true
+        if (!$first_appointment) {
+            return true;
+        }
+
+        // Retorna true se o ID do agendamento atual é igual ao ID do primeiro
+        return (int)$appointment['id'] === (int)$first_appointment['id'];
     }
 }

@@ -245,9 +245,10 @@ class Console extends EA_Controller
             
             try {
                 $appointments = $this->rotinas_whatsapp_model->find_due_appointments($routine, $window);
-                
+
                 // Skip routine if no appointments found
                 if (empty($appointments)) {
+                    response("No due appointments found for routine '{$routine['name']}' ({$routine['tempo_antes_horas']}h before)\n");
                     continue;
                 }
                 

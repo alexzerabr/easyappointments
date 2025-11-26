@@ -1095,6 +1095,25 @@ class Whatsapp_integration extends EA_Controller
                 $message
             );
 
+            // Verificar se já existe uma mensagem recente com o mesmo hash (proteção contra duplicatas)
+            $existing_log = $this->whatsapp_message_logs_model->get_by_hash($hash);
+            if ($existing_log) {
+                // Verifica se foi enviado recentemente (últimos 5 minutos)
+                $created_time = strtotime($existing_log['create_datetime']);
+                $time_diff_seconds = time() - $created_time;
+
+                if ($time_diff_seconds < 300) { // 5 minutos = 300 segundos
+                    json_response([
+                        'success' => false,
+                        'message' => 'Mensagem idêntica já foi enviada há ' . round($time_diff_seconds / 60, 1) . ' minutos. Aguarde antes de enviar novamente.',
+                        'duplicate_prevention' => true,
+                        'existing_log_id' => $existing_log['id'],
+                        'time_since_last_send_seconds' => $time_diff_seconds
+                    ]);
+                    return;
+                }
+            }
+
             // Criar log inicial
             $log_data = [
                 'body_hash' => $hash,
@@ -1120,7 +1139,18 @@ class Whatsapp_integration extends EA_Controller
                 'success', 'ok'
             ];
             $hasMessageId = isset($response['messageId']) || isset($response['id']) || isset($response['key']['id']);
-            $isSuccess = ($http >= 200 && $http < 300) && ($hasMessageId || in_array($statusField, $deliveredMarkers, true));
+
+            // CORREÇÃO: Considerar sucesso se HTTP 2xx, mesmo sem messageId
+            // O WPPConnect pode retornar HTTP 200 mas dar erro interno ao buscar metadata da mensagem
+            // Nesses casos, a mensagem FOI ENTREGUE, mas o servidor teve erro secundário
+            $httpSuccess = ($http >= 200 && $http < 300);
+            $hasExplicitSuccess = $hasMessageId || in_array($statusField, $deliveredMarkers, true);
+
+            // Se HTTP 2xx E não tem erro explícito na resposta, considerar sucesso
+            $hasExplicitError = !empty($response['error']) ||
+                               (!empty($response['message']) && stripos($response['message'], 'error') !== false);
+
+            $isSuccess = $httpSuccess && ($hasExplicitSuccess || !$hasExplicitError);
 
             $this->whatsapp_message_logs_model->update_status(
                 $hash,
@@ -1133,10 +1163,27 @@ class Whatsapp_integration extends EA_Controller
                 ]
             );
 
+            // Log detalhado para debugging
+            log_message('info', sprintf(
+                'Test message send: hash=%s, http=%d, hasMessageId=%s, hasExplicitSuccess=%s, hasExplicitError=%s, isSuccess=%s',
+                substr($hash, 0, 8) . '...',
+                $http,
+                $hasMessageId ? 'true' : 'false',
+                $hasExplicitSuccess ? 'true' : 'false',
+                $hasExplicitError ? 'true' : 'false',
+                $isSuccess ? 'true' : 'false'
+            ));
+
             json_response([
                 'success' => $isSuccess,
                 'message' => $isSuccess ? 'Mensagem de teste enviada com sucesso' : 'Falha ao enviar mensagem de teste',
-                'response' => $response
+                'response' => $response,
+                'debug' => [
+                    'http_status' => $http,
+                    'has_message_id' => $hasMessageId,
+                    'has_explicit_success' => $hasExplicitSuccess,
+                    'has_explicit_error' => $hasExplicitError,
+                ]
             ]);
 
         } catch (Throwable $e) {
