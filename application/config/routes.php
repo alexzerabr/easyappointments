@@ -178,8 +178,9 @@ $route['whatsapp_integration/send_message']['post'] = 'whatsapp_integration/send
 $route['whatsapp_integration/can_send_message']['get'] = 'whatsapp_integration/can_send_message';
 $route['whatsapp_integration/get_statistics']['get'] = 'whatsapp_integration/get_statistics';
 $route['whatsapp_integration/send_test_message']['post'] = 'whatsapp_integration/send_test_message';
-$route['whatsapp_integration/get_message_logs']['get'] = 'whatsapp_integration/get_message_logs';
 $route['whatsapp_integration/get_message_stats']['get'] = 'whatsapp_integration/get_message_stats';
+$route['whatsapp_integration/get_logs']['get'] = 'whatsapp_integration/get_logs';
+$route['whatsapp_integration/clear_logs']['post'] = 'whatsapp_integration/clear_logs';
 
 // WhatsApp Templates Management
 $route['whatsapp_templates'] = 'whatsapp_templates/index';
