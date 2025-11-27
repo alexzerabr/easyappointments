@@ -47,7 +47,6 @@ class Wppconnect_service
                 'token' => '',
                 'enabled' => false,
                 'wait_qr' => true,
-                'verify_ssl' => true, // Default to true for security
             ];
             return;
         }
@@ -69,7 +68,6 @@ class Wppconnect_service
             'token' => $settings['token'] ?? '',
             'enabled' => $settings['enabled'] ?? false,
             'wait_qr' => $settings['wait_qr'] ?? true,
-            'verify_ssl' => $settings['verify_ssl'] ?? true, // Default to true for security
         ];
     }
 
@@ -330,6 +328,24 @@ class Wppconnect_service
     }
 
     /**
+     * Determine if SSL verification should be enabled based on URL scheme.
+     *
+     * @return bool True if HTTPS, false if HTTP
+     */
+    private function should_verify_ssl(): bool
+    {
+        $host = $this->config['host'] ?? '';
+
+        // If URL starts with https://, verify SSL
+        if (stripos($host, 'https://') === 0) {
+            return true;
+        }
+
+        // HTTP or no scheme: don't verify SSL
+        return false;
+    }
+
+    /**
      * Generate authentication token.
      *
      * @param string|null $secret_key Secret key (if not provided, uses config).
@@ -553,19 +569,15 @@ class Wppconnect_service
         $baseUrl = $this->get_base_url();
 
         $ch = curl_init();
-
-        // Check if SSL verification should be disabled (from config)
-        $verify_ssl = $this->config['verify_ssl'] ?? true;
+        $verify_ssl = $this->should_verify_ssl();
 
         curl_setopt_array($ch, [
             CURLOPT_URL => $baseUrl,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => (int)(getenv('WPPCONNECT_TIMEOUT') ?: 30),
             CURLOPT_CONNECTTIMEOUT => (int)(getenv('WPPCONNECT_CONNECT_TIMEOUT') ?: 10),
-            // Do not follow redirects to reduce SSRF risk
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_NOBODY => false,
-            // SSL verification controlled by config setting
             CURLOPT_SSL_VERIFYPEER => $verify_ssl,
             CURLOPT_SSL_VERIFYHOST => $verify_ssl ? 2 : 0,
         ]);
@@ -618,8 +630,7 @@ class Wppconnect_service
                     $headers[] = 'Authorization: Bearer ' . $this->config['token'];
                 }
 
-                // Check if SSL verification should be disabled (from config)
-                $verify_ssl = $this->config['verify_ssl'] ?? true;
+                $verify_ssl = $this->should_verify_ssl();
 
                 curl_setopt_array($ch, [
                     CURLOPT_URL => $url,
@@ -627,7 +638,6 @@ class Wppconnect_service
                     CURLOPT_TIMEOUT => (int)(getenv('WPPCONNECT_TIMEOUT') ?: 30),
                     CURLOPT_CONNECTTIMEOUT => (int)(getenv('WPPCONNECT_CONNECT_TIMEOUT') ?: 10),
                     CURLOPT_HTTPHEADER => $headers,
-                    // SSL verification controlled by config setting
                     CURLOPT_SSL_VERIFYPEER => $verify_ssl,
                     CURLOPT_SSL_VERIFYHOST => $verify_ssl ? 2 : 0,
                     CURLOPT_FOLLOWLOCATION => false,

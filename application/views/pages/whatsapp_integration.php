@@ -123,20 +123,6 @@
                             </div>
                         </div>
 
-                        <!-- Advanced Settings -->
-                        <div class="row">
-                            <div class="col-md-12 mb-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="whatsapp-verify-ssl" data-field="verify_ssl"
-                                           <?= !empty($whatsapp_settings['verify_ssl']) ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="whatsapp-verify-ssl">
-                                        <strong><?= lang('whatsapp_verify_ssl') ?: 'Verificar Certificado SSL' ?></strong>
-                                    </label>
-                                </div>
-                                <div class="form-text"><?= lang('whatsapp_verify_ssl_hint') ?: 'Desabilite apenas se o servidor WPPConnect usar certificado SSL auto-assinado ou inválido. Recomendado: Habilitado para produção com HTTPS válido.' ?></div>
-                            </div>
-                        </div>
-
                         <div class="d-flex justify-content-between">
                             <div>
                                 <button type="button" id="test-connectivity-btn" class="btn btn-outline-info me-2">

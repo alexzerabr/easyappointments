@@ -407,8 +407,6 @@ class Whatsapp_integration extends EA_Controller
                     continue;
                 } elseif ($name === 'enabled') {
                     $settings_data['enabled'] = !empty($value) && ($value === '1' || $value === 1 || $value === true || $value === 'true') ? 1 : 0;
-                } elseif ($name === 'verify_ssl') {
-                    $settings_data['verify_ssl'] = !empty($value) && ($value === '1' || $value === 1 || $value === true || $value === 'true') ? 1 : 0;
                 } else {
                     $settings_data[$name] = $value;
                 }
@@ -530,7 +528,6 @@ class Whatsapp_integration extends EA_Controller
                 'host' => $settings_data['host'] ?? null,
                 'session' => $settings_data['session'] ?? null,
                 'enabled' => !empty($settings_data['enabled']) ? 1 : 0,
-                'verify_ssl' => !empty($settings_data['verify_ssl']) ? 1 : 0,
             ];
 
             json_response([
