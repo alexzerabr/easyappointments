@@ -274,16 +274,13 @@ class Wppconnect_service
             return '';
         }
 
-        // Check if host already contains scheme and/or port
         $hasScheme = strpos($host, '://') !== false;
         $hasPortInHost = (bool) preg_match('/:\d+$/', $host);
 
-        // If host already contains port, return as-is
         if ($hasPortInHost) {
             return $host;
         }
 
-        // If no scheme, return host with port (backward compatibility when legacy port is still set)
         if (!$hasScheme) {
             if (!empty($port)) {
                 return $host . ':' . $port;
@@ -291,10 +288,8 @@ class Wppconnect_service
             return $host;
         }
 
-        // Parse URL components for scheme-based logic
         $parsedUrl = parse_url($host);
         if (!$parsedUrl || !isset($parsedUrl['scheme'], $parsedUrl['host'])) {
-            // Fallback: return original host
             return $host;
         }
 
@@ -308,15 +303,11 @@ class Wppconnect_service
 
         // HTTP: Differentiate between domains and IPs
         if ($scheme === 'http') {
-            // Check if hostname is an IP address
             if ($this->is_ip_address($hostname)) {
-                // IP address: Always add port if configured
                 if (!empty($port)) {
                     return $host . ':' . $port;
                 }
             } else {
-                // Domain name: Only add port if it was NOT already in original host
-                // Since we already checked $hasPortInHost above, we know it's not there
                 // For HTTP domains, only add port if explicitly configured AND not default
                 if (!empty($port) && $port != '80') {
                     return $host . ':' . $port;
@@ -335,7 +326,6 @@ class Wppconnect_service
      */
     private function is_ip_address(string $hostname): bool
     {
-        // Check for IPv4 or IPv6
         return filter_var($hostname, FILTER_VALIDATE_IP) !== false;
     }
 
@@ -506,11 +496,9 @@ class Wppconnect_service
         ];
 
         try {
-            // Test 1: Basic connectivity
             $base_url = $this->get_base_url();
             $result['details']['base_url'] = $base_url;
 
-            // Test 2: Token generation or status check
             if (empty($this->config['token'])) {
                 if (empty($this->config['secret_key'])) {
                     $result['message'] = 'Secret key is required to generate token';
@@ -518,7 +506,6 @@ class Wppconnect_service
                     return $result;
                 }
 
-                // Try to generate token
                 $token_response = $this->generate_token();
                 $result['details']['token_generation'] = $token_response;
 
@@ -535,7 +522,6 @@ class Wppconnect_service
                     $result['details']['step'] = 'token_generation_failed';
                 }
             } else {
-                // Try to check status
                 $status_response = $this->get_status();
                 $result['details']['status_check'] = $status_response;
 
@@ -861,7 +847,6 @@ class Wppconnect_service
      */
     private function normalize_phone(string $phone): string
     {
-        // Remove all non-digit characters
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
         // Add country code if not present (assuming Brazil +55 as default)

@@ -74,27 +74,19 @@ class Whatsapp_integration extends EA_Controller
 
         $role_slug = session('role_slug');
 
-        // Get current settings
         $settings = $this->whatsapp_integration_settings_model->get_current();
-        
+
         // Prepare settings for display (do not decrypt or expose tokens)
         if (!empty($settings)) {
-            // Ensure sensitive fields are blanked and encrypted columns removed
             $settings['secret_key'] = '';
             $settings['token'] = '';
             unset($settings['secret_key_enc'], $settings['token_enc'], $settings['token_masked']);
         }
 
-        // Get template statistics
         $template_stats = $this->whatsapp_template_service->get_template_statistics();
-
-        // Get message statistics
         $message_stats = $this->whatsapp_message_logs_model->get_stats();
-
-        // Get recent message logs
         $recent_logs = $this->whatsapp_message_logs_model->get_paginated(1, 10, []);
 
-        // Get WPPConnect service status
         $service_status = [
             'configured' => $this->wppconnect_service->is_configured(),
             'enabled' => $this->wppconnect_service->is_enabled(),
@@ -116,10 +108,9 @@ class Whatsapp_integration extends EA_Controller
             $initial_status = 'DISCONNECTED';
         }
 
-        // Prepare settings for script_vars (serialize format)
+        // Prepare settings for script_vars (serialize format, excluding sensitive data)
         $whatsapp_settings_serialized = [];
         if (!empty($settings)) {
-            // Add basic configuration fields (including enabled)
             $config_fields = ['host', 'session', 'enabled'];
             foreach ($config_fields as $field) {
                 if (isset($settings[$field])) {
@@ -129,8 +120,6 @@ class Whatsapp_integration extends EA_Controller
                     ];
                 }
             }
-            
-            // Do NOT include token or masked token in script_vars for the frontend
         }
 
         script_vars([
@@ -392,7 +381,6 @@ class Whatsapp_integration extends EA_Controller
 
             $whatsapp_settings = request('whatsapp_settings', []);
 
-            // Get current settings to update or create new
             $current = $this->whatsapp_integration_settings_model->get_current();
             
             if (!empty($current)) {
@@ -418,10 +406,8 @@ class Whatsapp_integration extends EA_Controller
                     // ignore; port is deprecated in favor of host:port or full URL
                     continue;
                 } elseif ($name === 'enabled') {
-                    // Handle enabled checkbox (convert to int)
                     $settings_data['enabled'] = !empty($value) && ($value === '1' || $value === 1 || $value === true || $value === 'true') ? 1 : 0;
                 } elseif ($name === 'verify_ssl') {
-                    // Handle verify_ssl checkbox (convert to int)
                     $settings_data['verify_ssl'] = !empty($value) && ($value === '1' || $value === 1 || $value === true || $value === 'true') ? 1 : 0;
                 } else {
                     $settings_data[$name] = $value;
