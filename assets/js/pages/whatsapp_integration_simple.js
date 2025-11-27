@@ -956,14 +956,14 @@ $(document).ready(function() {
     // Load logs
     function loadLogs() {
         console.log('Loading logs...');
-        
+
         const filterStatus = $('#log-filter-status').val();
-        
+
         $.ajax({
-            url: 'whatsapp_integration/get_logs',
+            url: 'whatsapp_integration/get_message_logs',
             type: 'GET',
             data: {
-                status: filterStatus,
+                result: filterStatus,
                 csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '')
             },
             success: function(response) {

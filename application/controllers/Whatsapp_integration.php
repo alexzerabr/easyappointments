@@ -1156,31 +1156,7 @@ class Whatsapp_integration extends EA_Controller
     }
 
 
-    /**
-     * Get message statistics.
-     */
-    public function get_message_stats(): void
-    {
-        try {
-            if (cannot('view', PRIV_SYSTEM_SETTINGS)) {
-                abort(403, 'Forbidden');
-            }
-
-            $this->load->model('whatsapp_message_logs_model');
-
-            $stats = $this->whatsapp_message_logs_model->get_stats();
-
-            json_response([
-                'success' => true,
-                'data' => $stats
-            ]);
-
-        } catch (Throwable $e) {
-            json_exception($e);
-        }
-    }
-
-    // Duplicate get_statistics removed: keep sending statistics implementation above
+    // Duplicate get_message_stats removed: get_statistics already provides message stats
 
     /**
      * Rotate token (generate new and revoke old)
@@ -1246,56 +1222,6 @@ class Whatsapp_integration extends EA_Controller
             ]);
         } catch (Exception $e) {
             log_message('error', 'Failed to insert token reveal audit: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Get message logs with filters.
-     */
-    public function get_logs(): void
-    {
-        try {
-            if (cannot('view', PRIV_SYSTEM_SETTINGS)) {
-                abort(403, 'Forbidden');
-            }
-
-            $this->load->model('whatsapp_message_logs_model');
-
-            // Parâmetros de filtro
-            $status = request('status', '');
-            $page = (int) request('page', 1);
-            $limit = (int) request('limit', 20);
-            $search = request('search', '');
-
-            // Construir filtros
-            $filters = [];
-            if (!empty($status)) {
-                $filters['result'] = $status;
-            }
-            if (!empty($search)) {
-                $filters['search'] = $search;
-            }
-
-            // Buscar logs paginados
-            $logs = $this->whatsapp_message_logs_model->get_paginated($page, $limit, $filters);
-
-            // Buscar estatísticas para os filtros
-            $stats = $this->whatsapp_message_logs_model->get_stats();
-
-            json_response([
-                'success' => true,
-                'data' => $logs,
-                'stats' => $stats,
-                'pagination' => [
-                    'page' => $page,
-                    'limit' => $limit,
-                    'total' => $logs['total'] ?? 0,
-                    'pages' => ceil(($logs['total'] ?? 0) / $limit)
-                ]
-            ]);
-
-        } catch (Throwable $e) {
-            json_exception($e);
         }
     }
 
