@@ -836,37 +836,6 @@ class Whatsapp_integration extends EA_Controller
     }
 
     /**
-     * Perform comprehensive health check.
-     */
-    public function health_check(): void
-    {
-        try {
-            if (cannot('view', PRIV_SYSTEM_SETTINGS)) {
-                abort(403, 'Forbidden');
-            }
-
-            $health = $this->wppconnect_service->health_check();
-
-            json_response([
-                'success' => true,
-                'data' => $health
-            ]);
-
-        } catch (Throwable $e) {
-            json_response([
-                'success' => false,
-                'message' => 'Health check failed: ' . $e->getMessage(),
-                'data' => [
-                    'status' => 'error',
-                    'checks' => [],
-                    'error' => $e->getMessage(),
-                    'timestamp' => date('Y-m-d H:i:s')
-                ]
-            ], 500);
-        }
-    }
-
-    /**
      * Test connectivity to WPPConnect server.
      */
     public function test_connectivity(): void
@@ -1214,94 +1183,6 @@ class Whatsapp_integration extends EA_Controller
     // Duplicate get_statistics removed: keep sending statistics implementation above
 
     /**
-     * Get current token (for editing purposes).
-     */
-    public function get_token(): void
-    {
-        // Endpoint intentionally disabled for security. Use reveal_token (audited and rate-limited).
-        json_response(['success' => false, 'message' => 'Token retrieval is only allowed via reveal_token endpoint'], 405);
-    }
-
-    /**
-     * Reveal token (guarded, audited and rate-limited)
-     */
-    public function reveal_token(): void
-    {
-        try {
-            if ($this->input->method() !== 'post') {
-                json_response(['success' => false, 'message' => 'Method not allowed'], 405);
-                return;
-            }
-
-            if (cannot('edit', PRIV_SYSTEM_SETTINGS)) {
-                abort(403, 'Forbidden');
-            }
-
-            $user_id = session('user_id');
-            $role_slug = session('role_slug');
-            $ip = $this->input->ip_address();
-
-            // Rate limit: prefer Redis-based counter; fallback to DB counter
-            $limitExceeded = false;
-            try {
-                if (extension_loaded('redis')) {
-                    $redisHost = getenv('REDIS_HOST') ?: '127.0.0.1';
-                    $redisPort = (int)(getenv('REDIS_PORT') ?: 6379);
-                    $redis = new Redis();
-                    $redis->connect($redisHost, $redisPort);
-
-                    $key = "wa:reveal:{$user_id}";
-                    $count = $redis->incr($key);
-                    if ($count === 1) {
-                        $redis->expire($key, 3600); // 1 hour window
-                    }
-
-                    if ($count > 3) {
-                        $limitExceeded = true;
-                    }
-                } else {
-                    // Redis extension not available: fallback to DB count
-                    $one_hour_ago = date('Y-m-d H:i:s', strtotime('-1 hour'));
-            $count = $this->db->where('user_id', $user_id)
-                                      ->where('action', 'reveal')
-                                      ->where('created_at >=', $one_hour_ago)
-                                      ->count_all_results('ea_whatsapp_token_reveal_logs');
-                    if ($count >= 3) {
-                        $limitExceeded = true;
-                    }
-                }
-            } catch (Throwable $e) {
-                // On any error with rate-limiter, fail-open but log the issue
-                log_message('error', 'Rate limiter error: ' . $e->getMessage());
-                $limitExceeded = false;
-            }
-
-            if ($limitExceeded) {
-                // Log attempt
-                $this->log_token_action($user_id, $role_slug, 'reveal', 'rate_limited');
-                json_response(['success' => false, 'message' => 'Rate limit exceeded'], 429);
-                return;
-            }
-
-            $settings = $this->whatsapp_integration_settings_model->get_current();
-            if (empty($settings) || empty($settings['token'])) {
-                $this->log_token_action($user_id, $role_slug, 'reveal', 'not_found');
-                json_response(['success' => false, 'message' => 'Token not configured'], 404);
-                return;
-            }
-
-            // Audit success (do NOT log token value)
-            $this->log_token_action($user_id, $role_slug, 'reveal', 'success');
-
-            json_response(['success' => true, 'data' => ['token' => $settings['token']]]);
-
-        } catch (Throwable $e) {
-            log_message('error', 'WA token reveal error: ' . $e->getMessage());
-            json_exception($e);
-        }
-    }
-
-    /**
      * Rotate token (generate new and revoke old)
      *
      * NOTE: web/API rotation is disabled. Rotation must be performed from the console (CLI).
@@ -1345,32 +1226,6 @@ class Whatsapp_integration extends EA_Controller
             } else {
                 json_exception($e);
             }
-        }
-    }
-
-    /**
-     * Log token copy action (audit)
-     */
-    public function log_token_copy(): void
-    {
-        try {
-            if ($this->input->method() !== 'post') {
-                json_response(['success' => false, 'message' => 'Method not allowed'], 405);
-                return;
-            }
-
-            if (cannot('edit', PRIV_SYSTEM_SETTINGS)) {
-                abort(403, 'Forbidden');
-            }
-
-            $user_id = session('user_id');
-            $role_slug = session('role_slug');
-            $this->log_token_action($user_id, $role_slug, 'copy', 'success');
-            json_response(['success' => true]);
-
-        } catch (Throwable $e) {
-            log_message('error', 'WA log_token_copy error: ' . $e->getMessage());
-            json_exception($e);
         }
     }
 
@@ -1492,28 +1347,12 @@ class Whatsapp_integration extends EA_Controller
         if (strlen($phone) < 8) {
             return $phone;
         }
-        
+
         $prefix = substr($phone, 0, 3);
         $suffix = substr($phone, -4);
         $masked = str_repeat('*', strlen($phone) - 7);
-        
+
         return $prefix . $masked . $suffix;
-    }
-
-    /**
-     * Mask token for display.
-     *
-     * @param string $token Token to mask.
-     *
-     * @return string Masked token.
-     */
-    private function mask_token(string $token): string
-    {
-        if (strlen($token) <= 8) {
-            return str_repeat('*', strlen($token));
-        }
-
-        return substr($token, 0, 4) . str_repeat('*', strlen($token) - 8) . substr($token, -4);
     }
 
     /**
