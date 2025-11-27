@@ -44,13 +44,13 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="execution-logs-tab" data-bs-toggle="tab" data-bs-target="#execution-logs-pane" type="button" role="tab" aria-controls="execution-logs-pane" aria-selected="false">
                         <i class="fas fa-history me-2"></i>
-                        Logs de Execução
+                        <?= lang('execution_logs') ?>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="test-tab" data-bs-toggle="tab" data-bs-target="#test-pane" type="button" role="tab" aria-controls="test-pane" aria-selected="false">
                         <i class="fas fa-paper-plane me-2"></i>
-                        Teste de Envio
+                        <?= lang('test_send') ?>
                     </button>
                 </li>
             </ul>
@@ -81,7 +81,7 @@
                                     </label>
                                 </div>
                                 <div class="form-text">
-                                    Habilita o envio automático de mensagens WhatsApp.
+                                    <?= lang('whatsapp_integration_enabled_hint') ?>
                                 </div>
                             </div>
                         </div>
@@ -91,10 +91,10 @@
                                 <label for="whatsapp-host" class="form-label">
                                     <?= lang('whatsapp_host') ?> *
                                 </label>
-                                <input type="text" id="whatsapp-host" data-field="host" class="form-control" 
-                                       value="<?= $whatsapp_settings['host'] ?? 'http://localhost:21465' ?>" 
-                                       placeholder="Ex.: http://localhost:21465 | 127.0.0.1:21465 | https://seu-dominio" required>
-                                <div class="form-text">Preencha os dados de integração WPPConnect.</div>
+                                <input type="text" id="whatsapp-host" data-field="host" class="form-control"
+                                       value="<?= $whatsapp_settings['host'] ?? 'http://localhost:21465' ?>"
+                                       placeholder="<?= lang('whatsapp_host_placeholder') ?>" required>
+                                <div class="form-text"><?= lang('whatsapp_host_hint') ?></div>
                             </div>
                         </div>
 
@@ -123,6 +123,19 @@
                             </div>
                         </div>
 
+                        <!-- Advanced Settings -->
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="whatsapp-verify-ssl" data-field="verify_ssl"
+                                           <?= !empty($whatsapp_settings['verify_ssl']) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="whatsapp-verify-ssl">
+                                        <strong><?= lang('whatsapp_verify_ssl') ?: 'Verificar Certificado SSL' ?></strong>
+                                    </label>
+                                </div>
+                                <div class="form-text"><?= lang('whatsapp_verify_ssl_hint') ?: 'Desabilite apenas se o servidor WPPConnect usar certificado SSL auto-assinado ou inválido. Recomendado: Habilitado para produção com HTTPS válido.' ?></div>
+                            </div>
+                        </div>
 
                         <div class="d-flex justify-content-between">
                             <div>
@@ -204,45 +217,45 @@
                         <div class="card-header">
                             <h5 class="fw-light text-secondary mb-0">
                                 <i class="fas fa-paper-plane me-2"></i>
-                                Teste de Envio de Mensagem
+                                <?= lang('test_send_message') ?>
                             </h5>
                         </div>
                         <div class="card-body">
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                Teste Integração WhatsApp
+                                <?= lang('test_whatsapp_integration') ?>
                             </div>
 
                             <form id="test-message-form">
                                 <div class="row">
                                     <div class="col-md-12">
                                         <div class="mb-3">
-                                            <label for="test-phone" class="form-label">Número do Telefone *</label>
-                                            <input type="text" id="test-phone" name="phone" class="form-control" 
-                                                   placeholder="+5535XXXXXXXXX" required>
-                                            <div class="form-text">Formato: +55XXXXXXXXXXX</div>
+                                            <label for="test-phone" class="form-label"><?= lang('phone_number') ?> *</label>
+                                            <input type="text" id="test-phone" name="phone" class="form-control"
+                                                   placeholder="<?= lang('phone_placeholder') ?>" required>
+                                            <div class="form-text"><?= lang('phone_format_hint') ?></div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="mb-3">
-                                    <label for="test-message" class="form-label">Mensagem *</label>
-                                    <textarea id="test-message" name="message" class="form-control" rows="4" 
-                                              placeholder="Digite sua mensagem de teste aqui..." required></textarea>
-                                    <div class="form-text">Máximo 4096 caracteres</div>
+                                    <label for="test-message" class="form-label"><?= lang('message') ?> *</label>
+                                    <textarea id="test-message" name="message" class="form-control" rows="4"
+                                              placeholder="<?= lang('test_message_placeholder') ?>" required></textarea>
+                                    <div class="form-text"><?= lang('message_max_chars') ?></div>
                                 </div>
 
                                 <div class="d-flex justify-content-between">
                                     <div>
                                         <button type="button" id="clear-test-form" class="btn btn-outline-secondary">
                                             <i class="fas fa-eraser me-2"></i>
-                                            Limpar
+                                            <?= lang('clear') ?>
                                         </button>
                                     </div>
                                     <div>
                                         <button type="submit" id="send-test-message" class="btn btn-primary">
                                             <i class="fas fa-paper-plane me-2"></i>
-                                            Enviar Teste
+                                            <?= lang('send_test') ?>
                                         </button>
                                     </div>
                                 </div>
@@ -252,7 +265,7 @@
                             <div id="test-result" class="mt-4 d-none">
                                 <div class="card">
                                     <div class="card-header">
-                                        <h6 class="mb-0">Resultado do Teste</h6>
+                                        <h6 class="mb-0"><?= lang('test_result') ?></h6>
                                     </div>
                                     <div class="card-body">
                                         <div id="test-result-content"></div>
@@ -403,14 +416,14 @@
                                     </button>
                                     <button type="button" id="clear-logs-btn" class="btn btn-outline-danger ms-2">
                                         <i class="fas fa-trash me-2"></i>
-                                        Limpar Logs
+                                        <?= lang('clear_logs') ?>
                                     </button>
                                 </div>
                                 <div>
                                     <select id="log-filter-status" class="form-select form-select-sm d-inline-block w-auto">
                                         <option value=""><?= lang('all_statuses') ?></option>
                                         <option value="SUCCESS"><?= lang('success') ?></option>
-                                        <option value="PENDING">Pendente</option>
+                                        <option value="PENDING"><?= lang('pending') ?></option>
                                         <option value="FAILURE"><?= lang('failure') ?></option>
                                     </select>
                                 </div>
@@ -442,7 +455,7 @@
                         <div class="card-header">
                             <h5 class="fw-light text-secondary mb-0">
                                 <i class="fas fa-history me-2"></i>
-                                Logs de Execução das Rotinas
+                                <?= lang('routine_execution_logs') ?>
                             </h5>
                         </div>
                         <div class="card-body">
@@ -454,7 +467,7 @@
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h4 class="mb-0" id="total-executions">-</h4>
-                                                    <span class="small">Total de Execuções</span>
+                                                    <span class="small"><?= lang('total_executions') ?></span>
                                                 </div>
                                                 <i class="fas fa-play-circle fa-2x"></i>
                                             </div>
@@ -467,7 +480,7 @@
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h4 class="mb-0" id="successful-executions">-</h4>
-                                                    <span class="small">Sucessos</span>
+                                                    <span class="small"><?= lang('successes') ?></span>
                                                 </div>
                                                 <i class="fas fa-check-circle fa-2x"></i>
                                             </div>
@@ -480,7 +493,7 @@
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h4 class="mb-0" id="partial-executions">-</h4>
-                                                    <span class="small">Parciais</span>
+                                                    <span class="small"><?= lang('partials') ?></span>
                                                 </div>
                                                 <i class="fas fa-exclamation-triangle fa-2x"></i>
                                             </div>
@@ -493,7 +506,7 @@
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h4 class="mb-0" id="failed-executions">-</h4>
-                                                    <span class="small">Falhas</span>
+                                                    <span class="small"><?= lang('failures') ?></span>
                                                 </div>
                                                 <i class="fas fa-times-circle fa-2x"></i>
                                             </div>
@@ -505,36 +518,36 @@
                             <!-- Filters -->
                             <div class="row mb-3">
                                 <div class="col-md-3">
-                                    <label for="execution-log-routine-filter" class="form-label">Rotina</label>
+                                    <label for="execution-log-routine-filter" class="form-label"><?= lang('routine') ?></label>
                                     <select id="execution-log-routine-filter" class="form-select">
-                                        <option value="">Todas as Rotinas</option>
+                                        <option value=""><?= lang('all_routines') ?></option>
                                     </select>
                                 </div>
                                 <div class="col-md-2">
-                                    <label for="execution-log-status-filter" class="form-label">Status</label>
+                                    <label for="execution-log-status-filter" class="form-label"><?= lang('status') ?></label>
                                     <select id="execution-log-status-filter" class="form-select">
-                                        <option value="">Todos</option>
-                                        <option value="SUCCESS">Sucesso</option>
-                                        <option value="PARTIAL_SUCCESS">Parcial</option>
-                                        <option value="FAILURE">Falha</option>
+                                        <option value=""><?= lang('all') ?></option>
+                                        <option value="SUCCESS"><?= lang('success') ?></option>
+                                        <option value="PARTIAL_SUCCESS"><?= lang('partial') ?></option>
+                                        <option value="FAILURE"><?= lang('failure') ?></option>
                                     </select>
                                 </div>
                                 <div class="col-md-2">
-                                    <label for="execution-log-date-from" class="form-label">Data Início</label>
+                                    <label for="execution-log-date-from" class="form-label"><?= lang('date_from') ?></label>
                                     <input type="date" id="execution-log-date-from" class="form-control">
                                 </div>
                                 <div class="col-md-2">
-                                    <label for="execution-log-date-to" class="form-label">Data Fim</label>
+                                    <label for="execution-log-date-to" class="form-label"><?= lang('date_to') ?></label>
                                     <input type="date" id="execution-log-date-to" class="form-control">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">&nbsp;</label>
                                     <div class="d-flex gap-2">
                                         <button type="button" id="filter-execution-logs-btn" class="btn btn-primary">
-                                            <i class="fas fa-filter me-2"></i>Filtrar
+                                            <i class="fas fa-filter me-2"></i><?= lang('filter') ?>
                                         </button>
                                         <button type="button" id="clear-execution-filters-btn" class="btn btn-outline-secondary">
-                                            <i class="fas fa-times me-2"></i>Limpar
+                                            <i class="fas fa-times me-2"></i><?= lang('clear') ?>
                                         </button>
                                     </div>
                                 </div>
@@ -544,12 +557,12 @@
                             <div class="d-flex justify-content-between mb-3">
                                 <div>
                                     <button type="button" id="refresh-execution-logs-btn" class="btn btn-outline-secondary">
-                                        <i class="fas fa-sync-alt me-2"></i>Atualizar
+                                        <i class="fas fa-sync-alt me-2"></i><?= lang('refresh') ?>
                                     </button>
                                 </div>
                                 <div>
                                     <button type="button" id="cleanup-execution-logs-btn" class="btn btn-outline-warning">
-                                        <i class="fas fa-broom me-2"></i>Limpar Logs Antigos
+                                        <i class="fas fa-broom me-2"></i><?= lang('clear_old_logs') ?>
                                     </button>
                                 </div>
                             </div>
@@ -559,16 +572,16 @@
                                 <table id="execution-logs-table" class="table table-striped">
                                     <thead>
                                         <tr>
-                                            <th>Data/Hora</th>
-                                            <th>Rotina</th>
-                                            <th>Status</th>
-                                            <th>Status Agendamento</th>
-                                            <th>Template</th>
-                                            <th>Encontrados</th>
-                                            <th>Sucessos</th>
-                                            <th>Falhas</th>
-                                            <th>Tempo (s)</th>
-                                            <th>Ações</th>
+                                            <th><?= lang('datetime') ?></th>
+                                            <th><?= lang('routine') ?></th>
+                                            <th><?= lang('status') ?></th>
+                                            <th><?= lang('appointment_status') ?></th>
+                                            <th><?= lang('template') ?></th>
+                                            <th><?= lang('found') ?></th>
+                                            <th><?= lang('successes') ?></th>
+                                            <th><?= lang('failures') ?></th>
+                                            <th><?= lang('time_seconds') ?></th>
+                                            <th><?= lang('actions') ?></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -748,50 +761,50 @@
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fas fa-info-circle me-2"></i>
-                    Detalhes da Execução
+                    <?= lang('execution_details') ?>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <h6 class="text-muted">Informações Gerais</h6>
+                        <h6 class="text-muted"><?= lang('general_information') ?></h6>
                         <table class="table table-sm">
                             <tr>
-                                <td><strong>Rotina:</strong></td>
+                                <td><strong><?= lang('routine') ?>:</strong></td>
                                 <td id="detail-routine-name">-</td>
                             </tr>
                             <tr>
-                                <td><strong>Status:</strong></td>
+                                <td><strong><?= lang('status') ?>:</strong></td>
                                 <td id="detail-execution-status">-</td>
                             </tr>
                             <tr>
-                                <td><strong>Data/Hora:</strong></td>
+                                <td><strong><?= lang('datetime') ?>:</strong></td>
                                 <td id="detail-execution-datetime">-</td>
                             </tr>
                             <tr>
-                                <td><strong>Tempo de Execução:</strong></td>
+                                <td><strong><?= lang('execution_time') ?>:</strong></td>
                                 <td id="detail-execution-time">-</td>
                             </tr>
                         </table>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="text-muted">Resultados</h6>
+                        <h6 class="text-muted"><?= lang('results') ?></h6>
                         <table class="table table-sm">
                             <tr>
-                                <td><strong>Agendamentos Encontrados:</strong></td>
+                                <td><strong><?= lang('appointments_found') ?>:</strong></td>
                                 <td id="detail-total-appointments">-</td>
                             </tr>
                             <tr>
-                                <td><strong>Envios Bem-sucedidos:</strong></td>
+                                <td><strong><?= lang('successful_sends') ?>:</strong></td>
                                 <td id="detail-successful-sends">-</td>
                             </tr>
                             <tr>
-                                <td><strong>Envios Falhou:</strong></td>
+                                <td><strong><?= lang('failed_sends') ?>:</strong></td>
                                 <td id="detail-failed-sends">-</td>
                             </tr>
                             <tr>
-                                <td><strong>Template:</strong></td>
+                                <td><strong><?= lang('template') ?>:</strong></td>
                                 <td id="detail-template-name">-</td>
                             </tr>
                         </table>
@@ -799,21 +812,21 @@
                 </div>
 
                 <div class="mt-3">
-                    <h6 class="text-muted">Clientes Notificados</h6>
+                    <h6 class="text-muted"><?= lang('notified_clients') ?></h6>
                     <div id="detail-clients-notified" class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
                         <!-- Clients list will be loaded here -->
                     </div>
                 </div>
 
                 <div class="mt-3">
-                    <h6 class="text-muted">Detalhes da Execução</h6>
+                    <h6 class="text-muted"><?= lang('execution_details') ?></h6>
                     <div id="detail-execution-details" class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
                         <!-- Execution details will be loaded here -->
                     </div>
                 </div>
 
                 <div id="detail-error-section" class="mt-3 d-none">
-                    <h6 class="text-muted text-danger">Mensagem de Erro</h6>
+                    <h6 class="text-muted text-danger"><?= lang('error_message') ?></h6>
                     <div id="detail-error-message" class="alert alert-danger">
                         <!-- Error message will be loaded here -->
                     </div>
@@ -821,7 +834,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Fechar
+                    <i class="fas fa-times me-2"></i><?= lang('close') ?>
                 </button>
             </div>
         </div>
@@ -835,24 +848,24 @@
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
-                    Confirmar Limpeza
+                    <?= lang('confirm_cleanup') ?>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Tem certeza que deseja remover logs de execução mais antigos que o período especificado?</p>
+                <p><?= lang('confirm_cleanup_message') ?></p>
                 <div class="mb-3">
-                    <label for="cleanup-days" class="form-label">Manter logs dos últimos (dias):</label>
+                    <label for="cleanup-days" class="form-label"><?= lang('keep_logs_days') ?>:</label>
                     <input type="number" id="cleanup-days" class="form-control" value="90" min="1" max="365">
-                    <div class="form-text">Logs mais antigos que este período serão removidos permanentemente.</div>
+                    <div class="form-text"><?= lang('cleanup_warning') ?></div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Cancelar
+                    <i class="fas fa-times me-2"></i><?= lang('cancel') ?>
                 </button>
                 <button type="button" id="confirm-cleanup-btn" class="btn btn-warning">
-                    <i class="fas fa-broom me-2"></i>Confirmar Limpeza
+                    <i class="fas fa-broom me-2"></i><?= lang('confirm_cleanup') ?>
                 </button>
             </div>
         </div>

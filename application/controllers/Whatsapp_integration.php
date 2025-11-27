@@ -420,6 +420,9 @@ class Whatsapp_integration extends EA_Controller
                 } elseif ($name === 'enabled') {
                     // Handle enabled checkbox (convert to int)
                     $settings_data['enabled'] = !empty($value) && ($value === '1' || $value === 1 || $value === true || $value === 'true') ? 1 : 0;
+                } elseif ($name === 'verify_ssl') {
+                    // Handle verify_ssl checkbox (convert to int)
+                    $settings_data['verify_ssl'] = !empty($value) && ($value === '1' || $value === 1 || $value === true || $value === 'true') ? 1 : 0;
                 } else {
                     $settings_data[$name] = $value;
                 }
@@ -541,6 +544,7 @@ class Whatsapp_integration extends EA_Controller
                 'host' => $settings_data['host'] ?? null,
                 'session' => $settings_data['session'] ?? null,
                 'enabled' => !empty($settings_data['enabled']) ? 1 : 0,
+                'verify_ssl' => !empty($settings_data['verify_ssl']) ? 1 : 0,
             ];
 
             json_response([
@@ -1136,7 +1140,14 @@ class Whatsapp_integration extends EA_Controller
             // WPPConnect may return HTTP 200 without messageId, but message IS delivered.
             // This aligns with the fix in Wppconnect_service.php (no retry on HTTP 2xx)
             $http = (int)($response['_http_status'] ?? 0);
-            $isSuccess = ($http >= 200 && $http < 300);
+
+            // WORKAROUND: WPPConnect bug - returns HTTP 500 with "msg_not_found" error
+            // even when message is successfully sent (confirmed by onAnyMessage/onAck events)
+            // Treat this specific error as success since message was delivered
+            $errorCode = $response['error']['code'] ?? '';
+            $isMsgNotFoundError = ($http === 500 && $errorCode === 'msg_not_found');
+
+            $isSuccess = ($http >= 200 && $http < 300) || $isMsgNotFoundError;
 
             $this->whatsapp_message_logs_model->update_status(
                 $hash,
@@ -1149,9 +1160,14 @@ class Whatsapp_integration extends EA_Controller
                 ]
             );
 
+            $successMessage = 'Mensagem de teste enviada com sucesso';
+            if ($isMsgNotFoundError) {
+                $successMessage .= ' (WPPConnect retornou erro interno, mas a mensagem foi entregue)';
+            }
+
             json_response([
                 'success' => $isSuccess,
-                'message' => $isSuccess ? 'Mensagem de teste enviada com sucesso' : 'Falha ao enviar mensagem de teste',
+                'message' => $isSuccess ? $successMessage : 'Falha ao enviar mensagem de teste',
                 'response' => $response
             ]);
 

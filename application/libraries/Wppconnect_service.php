@@ -47,6 +47,7 @@ class Wppconnect_service
                 'token' => '',
                 'enabled' => false,
                 'wait_qr' => true,
+                'verify_ssl' => true, // Default to true for security
             ];
             return;
         }
@@ -68,6 +69,7 @@ class Wppconnect_service
             'token' => $settings['token'] ?? '',
             'enabled' => $settings['enabled'] ?? false,
             'wait_qr' => $settings['wait_qr'] ?? true,
+            'verify_ssl' => $settings['verify_ssl'] ?? true, // Default to true for security
         ];
     }
 
@@ -565,6 +567,10 @@ class Wppconnect_service
         $baseUrl = $this->get_base_url();
 
         $ch = curl_init();
+
+        // Check if SSL verification should be disabled (from config)
+        $verify_ssl = $this->config['verify_ssl'] ?? true;
+
         curl_setopt_array($ch, [
             CURLOPT_URL => $baseUrl,
             CURLOPT_RETURNTRANSFER => true,
@@ -573,9 +579,9 @@ class Wppconnect_service
             // Do not follow redirects to reduce SSRF risk
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_NOBODY => false,
-            // Enforce TLS verification on reachability check as well
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
+            // SSL verification controlled by config setting
+            CURLOPT_SSL_VERIFYPEER => $verify_ssl,
+            CURLOPT_SSL_VERIFYHOST => $verify_ssl ? 2 : 0,
         ]);
         $body = curl_exec($ch);
         $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -626,14 +632,18 @@ class Wppconnect_service
                     $headers[] = 'Authorization: Bearer ' . $this->config['token'];
                 }
 
+                // Check if SSL verification should be disabled (from config)
+                $verify_ssl = $this->config['verify_ssl'] ?? true;
+
                 curl_setopt_array($ch, [
                     CURLOPT_URL => $url,
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT => (int)(getenv('WPPCONNECT_TIMEOUT') ?: 30),
                     CURLOPT_CONNECTTIMEOUT => (int)(getenv('WPPCONNECT_CONNECT_TIMEOUT') ?: 10),
                     CURLOPT_HTTPHEADER => $headers,
-                    CURLOPT_SSL_VERIFYPEER => true,
-                    CURLOPT_SSL_VERIFYHOST => 2,
+                    // SSL verification controlled by config setting
+                    CURLOPT_SSL_VERIFYPEER => $verify_ssl,
+                    CURLOPT_SSL_VERIFYHOST => $verify_ssl ? 2 : 0,
                     CURLOPT_FOLLOWLOCATION => false,
                     CURLOPT_MAXREDIRS => 0,
                 ]);
@@ -648,6 +658,13 @@ class Wppconnect_service
                 $response = curl_exec($ch);
                 $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 $error = curl_error($ch);
+
+                // Debug logging
+                log_message('error', 'WPPConnect request debug: verify_ssl=' . ($verify_ssl ? 'true' : 'false') .
+                    ', http_code=' . $http_code .
+                    ', error=' . ($error ?: 'none') .
+                    ', response_length=' . strlen($response) .
+                    ', url=' . preg_replace('/\/[^\/]+\/generate-token/', '/[SECRET]/generate-token', $url));
 
                 curl_close($ch);
 
@@ -667,12 +684,43 @@ class Wppconnect_service
                 // WPPConnect may return HTTP 200 without messageId but message IS delivered
                 // This prevents duplicate messages caused by unnecessary retries
                 if ($http_code >= 200 && $http_code < 300) {
-                    // Success response - exit retry loop immediately
-                    break;
+                    // Success response - add metadata and return immediately
+                    if (is_array($decoded_response)) {
+                        $decoded_response['_http_status'] = $http_code;
+                        $decoded_response['_response_time_ms'] = $response_time;
+                        $decoded_response['_attempt'] = $attempt;
+                    }
+
+                    if ($attempt > 1) {
+                        log_message('info', "WPPConnect request succeeded after {$attempt} attempts");
+                    }
+
+                    return $decoded_response ?: [];
                 }
 
                 if ($http_code >= 400) {
                     $error_message = $decoded_response['message'] ?? 'HTTP ' . $http_code . ' error';
+
+                    // Log full error response for debugging
+                    log_message('error', 'WPPConnect error response (HTTP ' . $http_code . '): ' . json_encode($decoded_response));
+
+                    // WORKAROUND: WPPConnect bug - returns HTTP 500 with "msg_not_found" error
+                    // even when message is successfully sent (confirmed by onAnyMessage/onAck events in logs)
+                    // Treat this specific error as success since message was delivered
+                    $errorCode = $decoded_response['error']['code'] ?? '';
+                    if ($http_code === 500 && $errorCode === 'msg_not_found') {
+                        log_message('info', 'WPPConnect msg_not_found workaround applied - treating as success');
+
+                        // Add metadata and return as success
+                        if (is_array($decoded_response)) {
+                            $decoded_response['_http_status'] = $http_code;
+                            $decoded_response['_response_time_ms'] = $response_time;
+                            $decoded_response['_attempt'] = $attempt;
+                            $decoded_response['_workaround'] = 'msg_not_found_treated_as_success';
+                        }
+
+                        return $decoded_response ?: [];
+                    }
 
                     // Check if this is a retryable error (only 5xx, timeouts, rate limits)
                     if ($this->is_retryable_error($http_code, $error_message) && $attempt < $max_retries) {
@@ -685,19 +733,6 @@ class Wppconnect_service
 
                     throw new RuntimeException($error_message, $http_code);
                 }
-
-                // Add HTTP status and metadata to response
-                if (is_array($decoded_response)) {
-                    $decoded_response['_http_status'] = $http_code;
-                    $decoded_response['_response_time_ms'] = $response_time;
-                    $decoded_response['_attempt'] = $attempt;
-                }
-
-                if ($attempt > 1) {
-                    log_message('info', "WPPConnect request succeeded after {$attempt} attempts");
-                }
-
-                return $decoded_response ?: [];
 
             } catch (RuntimeException $e) {
                 $last_exception = $e;

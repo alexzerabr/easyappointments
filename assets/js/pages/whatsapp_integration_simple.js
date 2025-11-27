@@ -429,6 +429,11 @@ $(document).ready(function() {
                         localStorage.setItem('whatsapp_enabled', enabledBool ? '1' : '0');
                         console.log('Updated enabled checkbox and localStorage after save:', enabledBool);
                     }
+                    if (ss.verify_ssl !== undefined) {
+                        const verifySslBool = (ss.verify_ssl == 1 || ss.verify_ssl === true || ss.verify_ssl === '1');
+                        $('#whatsapp-verify-ssl').prop('checked', verifySslBool);
+                        console.log('Updated verify_ssl checkbox after save:', verifySslBool);
+                    }
                 }
 
                 // Single status check after successful save
