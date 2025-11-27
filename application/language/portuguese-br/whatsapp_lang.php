@@ -268,3 +268,64 @@ $lang['phone'] = 'Telefone';
 $lang['status'] = 'Status';
 $lang['result'] = 'Resultado';
 $lang['send_type'] = 'Tipo de Envio';
+
+// Tab labels - Main navigation
+$lang['execution_logs'] = 'Logs de Execução';
+$lang['test_send'] = 'Teste de Envio';
+
+// Execution logs
+$lang['routine_execution_logs'] = 'Logs de Execução das Rotinas';
+$lang['total_executions'] = 'Total de Execuções';
+$lang['successes'] = 'Sucessos';
+$lang['partials'] = 'Parciais';
+$lang['failures'] = 'Falhas';
+$lang['routine'] = 'Rotina';
+$lang['all_routines'] = 'Todas as Rotinas';
+$lang['all'] = 'Todos';
+$lang['partial'] = 'Parcial';
+$lang['date_from'] = 'Data Início';
+$lang['date_to'] = 'Data Fim';
+$lang['filter'] = 'Filtrar';
+$lang['clear'] = 'Limpar';
+$lang['clear_old_logs'] = 'Limpar Logs Antigos';
+$lang['datetime'] = 'Data/Hora';
+$lang['appointment_status'] = 'Status Agendamento';
+$lang['template'] = 'Template';
+$lang['found'] = 'Encontrados';
+$lang['time_seconds'] = 'Tempo (s)';
+$lang['actions'] = 'Ações';
+
+// Test send
+$lang['test_send_message'] = 'Teste de Envio de Mensagem';
+$lang['test_whatsapp_integration'] = 'Teste Integração WhatsApp';
+$lang['phone_number'] = 'Número do Telefone';
+$lang['phone_placeholder'] = '+5535XXXXXXXXX';
+$lang['phone_format_hint'] = 'Formato: +55XXXXXXXXXXX';
+$lang['message'] = 'Mensagem';
+$lang['test_message_placeholder'] = 'Digite sua mensagem de teste aqui...';
+$lang['message_max_chars'] = 'Máximo 4096 caracteres';
+$lang['send_test'] = 'Enviar Teste';
+$lang['test_result'] = 'Resultado do Teste';
+
+// Execution log details modal
+$lang['execution_details'] = 'Detalhes da Execução';
+$lang['general_information'] = 'Informações Gerais';
+$lang['execution_time'] = 'Tempo de Execução';
+$lang['results'] = 'Resultados';
+$lang['appointments_found'] = 'Agendamentos Encontrados';
+$lang['successful_sends'] = 'Envios Bem-sucedidos';
+$lang['failed_sends'] = 'Envios Falhados';
+$lang['notified_clients'] = 'Clientes Notificados';
+$lang['error_message'] = 'Mensagem de Erro';
+
+// Cleanup modal
+$lang['confirm_cleanup'] = 'Confirmar Limpeza';
+$lang['confirm_cleanup_message'] = 'Tem certeza que deseja remover logs de execução mais antigos que o período especificado?';
+$lang['keep_logs_days'] = 'Manter logs dos últimos (dias)';
+$lang['cleanup_warning'] = 'Logs mais antigos que este período serão removidos permanentemente.';
+
+// Common actions
+$lang['clear_logs'] = 'Limpar Logs';
+$lang['pending'] = 'Pendente';
+$lang['whatsapp_integration_enabled_hint'] = 'Habilita o envio automático de mensagens WhatsApp.';
+$lang['whatsapp_host_placeholder'] = 'Ex.: http://localhost:21465 | 127.0.0.1:21465 | https://seu-domínio';
