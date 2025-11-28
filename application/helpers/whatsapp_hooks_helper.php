@@ -120,7 +120,7 @@ if (!function_exists('trigger_appointment_save_hooks')) {
     function trigger_appointment_save_hooks(array $appointment, ?array $old_appointment = null, bool $is_new = true): void
     {
         $hooks = get_appointment_save_hooks();
-        
+
         foreach ($hooks as $hook_function) {
             if (function_exists($hook_function)) {
                 try {
@@ -130,6 +130,43 @@ if (!function_exists('trigger_appointment_save_hooks')) {
                 }
             }
         }
+    }
+}
+
+if (!function_exists('mask_phone_number')) {
+    /**
+     * Mask a phone number for privacy/logging purposes.
+     *
+     * Shows first 3 and last 4 characters, masks the middle with asterisks.
+     * For short numbers (< 8 chars), masks all characters.
+     *
+     * Examples:
+     * - "5511999998888" → "551****8888"
+     * - "999998888" → "999****8888"
+     * - "12345" → "*****"
+     *
+     * @param string $phone Phone number to mask
+     * @return string Masked phone number
+     */
+    function mask_phone_number(string $phone): string
+    {
+        if (empty($phone)) {
+            return '';
+        }
+
+        $length = strlen($phone);
+
+        // For very short numbers, mask everything
+        if ($length < 8) {
+            return str_repeat('*', $length);
+        }
+
+        // Standard masking: first 3 chars + asterisks + last 4 chars
+        $prefix = substr($phone, 0, 3);
+        $suffix = substr($phone, -4);
+        $masked_middle = str_repeat('*', $length - 7);
+
+        return $prefix . $masked_middle . $suffix;
     }
 }
 

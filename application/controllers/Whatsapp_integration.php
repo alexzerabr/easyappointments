@@ -132,13 +132,13 @@ class Whatsapp_integration extends EA_Controller
             'initial_session_status' => $initial_status,
             'appointment_status_options' => json_decode(setting('appointment_status_options') ?: '[]', true) ?: [],
             'i18n' => [
-                'confirm_reveal_token' => lang('confirm_reveal_token') ?? 'Você tem certeza que deseja revelar o token? Esta ação será registrada.',
-                'confirm_rotate_token' => lang('confirm_rotate_token') ?? 'Deseja rotacionar o token? Isto irá invalidar o token atual e gerar um novo.',
-                'connectivity_failed' => lang('connection_error') ?? 'Erro de Conexão',
-                'secret_key_required' => lang('secret_key_required') ?? 'Chave secreta é necessária para gerar o token',
+                'confirm_reveal_token' => lang('confirm_reveal_token') ?? 'Voc tem certeza que deseja revelar o token? Esta ao ser registrada.',
+                'confirm_rotate_token' => lang('confirm_rotate_token') ?? 'Deseja rotacionar o token? Isto ir invalidar o token atual e gerar um novo.',
+                'connectivity_failed' => lang('connection_error') ?? 'Erro de Conexo',
+                'secret_key_required' => lang('secret_key_required') ?? 'Chave secreta  necessria para gerar o token',
                 'token_generation_failed' => lang('no_token_generated') ?? 'Nenhum token gerado ainda',
-                'invalid_host' => lang('invalid_host') ?? 'Host/URL inválido ou inacessível',
-                'field_required' => lang('template_name_required') ?? 'Campo obrigatório',
+                'invalid_host' => lang('invalid_host') ?? 'Host/URL invlido ou inacessvel',
+                'field_required' => lang('template_name_required') ?? 'Campo obrigatrio',
             ],
         ]);
 
@@ -438,7 +438,7 @@ class Whatsapp_integration extends EA_Controller
                     // Pre-save connectivity check: fail fast and do not persist invalid config
                     $connectivity = $this->wppconnect_service->test_connectivity();
                     if (empty($connectivity['success']) || $connectivity['success'] === false) {
-                        // 1) Se a própria verificação incluiu geração de token bem-sucedida, prosseguir
+                        // 1) Se a prpria verificao incluiu gerao de token bem-sucedida, prosseguir
                         $gen = $connectivity['details']['token_generation'] ?? [];
                         $statusVal = strtolower((string)($gen['status'] ?? ''));
                         $httpStatus = (int)($gen['_http_status'] ?? 0);
@@ -446,7 +446,7 @@ class Whatsapp_integration extends EA_Controller
                         $gen_ok = ($statusVal === 'success' || $httpStatus === 201 || ($hasToken && $httpStatus >= 200 && $httpStatus < 300));
 
                         if (!$gen_ok) {
-                            // 2) Fallback: se falhou por 401 (token inválido) e temos secret_key, tentar gerar novo token agora
+                            // 2) Fallback: se falhou por 401 (token invlido) e temos secret_key, tentar gerar novo token agora
                             $msg = strtolower((string)($connectivity['message'] ?? ''));
                             $err = strtolower((string)(($connectivity['details']['error'] ?? '') . ''));
                             $needsNewToken = (strpos($msg, 'authentication failed') !== false) || (strpos($err, '401') !== false);
@@ -480,7 +480,7 @@ class Whatsapp_integration extends EA_Controller
                                     return;
                                 }
                             } else {
-                                // 3) Sem fallback possível -> abortar com detalhes
+                                // 3) Sem fallback possvel -> abortar com detalhes
                                 json_response([
                                     'success' => false,
                                     'message' => 'Connectivity check failed: ' . ($connectivity['message'] ?? 'Unknown error'),
@@ -491,7 +491,7 @@ class Whatsapp_integration extends EA_Controller
                         }
                     }
 
-                    // Generate token automatically (skip if já gerado no fallback anterior)
+                    // Generate token automatically (skip if j gerado no fallback anterior)
                     if (!$token_already_generated) {
                         $token_response = $this->wppconnect_service->generate_token($settings_data['secret_key']);
                         
@@ -506,13 +506,13 @@ class Whatsapp_integration extends EA_Controller
                             
                             log_message('info', 'Auto-generated WPPConnect token for session: ' . $settings_data['session']);
                         } else {
-                            $token_message = 'Configurações salvas, mas falha na geração automática do token: ' . ($token_response['message'] ?? 'Erro desconhecido');
+                            $token_message = 'Configuraes salvas, mas falha na gerao automtica do token: ' . ($token_response['message'] ?? 'Erro desconhecido');
                             $safe_token_response = $this->sanitize_for_logs($token_response);
                             log_message('warning', 'Auto token generation failed: ' . json_encode($safe_token_response));
                         }
                     }
                 } catch (Exception $e) {
-                    $token_message = 'Configurações salvas, mas erro na geração automática do token: ' . $e->getMessage();
+                    $token_message = 'Configuraes salvas, mas erro na gerao automtica do token: ' . $e->getMessage();
                     log_message('error', 'Auto token generation error: ' . $e->getMessage());
                 }
             }
@@ -532,7 +532,7 @@ class Whatsapp_integration extends EA_Controller
 
             json_response([
                 'success' => true,
-                'message' => $token_generated ? $token_message : 'Configurações salvas com sucesso',
+                'message' => $token_generated ? $token_message : 'Configuraes salvas com sucesso',
                 'token_generated' => $token_generated,
                 'token_message' => $token_message,
                 'settings_id' => $settings_id,
@@ -701,7 +701,8 @@ class Whatsapp_integration extends EA_Controller
                 abort(403, 'Forbidden');
             }
 
-            // Always wait for QR code since we have a dedicated "Show QR" button
+            // QR code can timeout (security best practice)
+            // But session should remain open - auto-regenerate new QR when expired
             $response = $this->wppconnect_service->start_session(true);
 
             json_response([
@@ -764,11 +765,22 @@ class Whatsapp_integration extends EA_Controller
             }
 
         } catch (Throwable $e) {
+            // CRITICAL FIX: Return success:false to distinguish API failure from disconnection
+            log_message('error', 'Failed to check WhatsApp status: ' . $e->getMessage());
+
+            // Try to get last known status from cache
+            $last_known = $_SESSION['wppconnect_last_status'] ?? null;
+
             json_response([
-                'success' => true,
-                'message' => 'WhatsApp status unavailable',
-                'data' => ['status' => 'DISCONNECTED'],
-            ]);
+                'success' => false,
+                'error' => 'API_ERROR',
+                'message' => 'Falha ao verificar status do WhatsApp. Verifique a conexo com o servidor WPPConnect.',
+                'last_known_status' => $last_known ? [
+                    'status' => $last_known['status'],
+                    'timestamp' => $last_known['timestamp'],
+                    'age_seconds' => time() - $last_known['timestamp'],
+                ] : null,
+            ], 500);
         }
     }
 
@@ -1028,22 +1040,22 @@ class Whatsapp_integration extends EA_Controller
                 return;
             }
 
-            // Usar serviço unificado
+            // Usar servio unificado
             $this->load->library('wppconnect_service');
             $this->load->model('whatsapp_message_logs_model');
 
-            // Verificar se está conectado
+            // Verificar se est conectado
             if (!$this->wppconnect_service->is_connected()) {
                 json_response([
                     'success' => false,
-                    'message' => 'Sessão WhatsApp não está conectada. Inicie a sessão primeiro.'
+                    'message' => 'Sesso WhatsApp no est conectada. Inicie a sesso primeiro.'
                 ]);
                 return;
             }
 
             // Template selection removed: always use provided message
 
-            // Gerar hash para idempotência
+            // Gerar hash para idempotncia
             $hash = $this->whatsapp_message_logs_model->generate_hash(
                 null, // appointment_id = null para teste
                 $template_id ?: null,
@@ -1051,17 +1063,17 @@ class Whatsapp_integration extends EA_Controller
                 $message
             );
 
-            // Verificar se já existe uma mensagem recente com o mesmo hash (proteção contra duplicatas)
+            // Verificar se j existe uma mensagem recente com o mesmo hash (proteo contra duplicatas)
             $existing_log = $this->whatsapp_message_logs_model->get_by_hash($hash);
             if ($existing_log) {
-                // Verifica se foi enviado recentemente (últimos 5 minutos)
+                // Verifica se foi enviado recentemente (ltimos 5 minutos)
                 $created_time = strtotime($existing_log['create_datetime']);
                 $time_diff_seconds = time() - $created_time;
 
                 if ($time_diff_seconds < 300) { // 5 minutos = 300 segundos
                     json_response([
                         'success' => false,
-                        'message' => 'Mensagem idêntica já foi enviada há ' . round($time_diff_seconds / 60, 1) . ' minutos. Aguarde antes de enviar novamente.',
+                        'message' => 'Mensagem idntica j foi enviada h ' . round($time_diff_seconds / 60, 1) . ' minutos. Aguarde antes de enviar novamente.',
                         'duplicate_prevention' => true,
                         'existing_log_id' => $existing_log['id'],
                         'time_since_last_send_seconds' => $time_diff_seconds
@@ -1076,7 +1088,7 @@ class Whatsapp_integration extends EA_Controller
                 'appointment_id' => null, // null para teste
                 'template_id' => $template_id ?: null,
                 'status_key' => 'test',
-                'to_phone' => $this->mask_phone($phone),
+                'to_phone' => mask_phone_number($phone),
                 'send_type' => 'manual', // usar 'manual' em vez de 'test'
                 'provider' => 'wppconnect',
                 'result' => 'PENDING',
@@ -1220,14 +1232,14 @@ class Whatsapp_integration extends EA_Controller
 
             $this->load->model('whatsapp_message_logs_model');
 
-            // Parâmetros de filtro para limpeza
+            // Parmetros de filtro para limpeza
             $status = request('status', '');
             $older_than_days = (int) request('older_than_days', 0);
 
             $deleted_count = 0;
 
             if (!empty($status)) {
-                // Limpar por status específico
+                // Limpar por status especfico
                 $deleted_count = $this->whatsapp_message_logs_model->delete_by_status($status);
             } elseif ($older_than_days > 0) {
                 // Limpar logs mais antigos que X dias
@@ -1248,21 +1260,6 @@ class Whatsapp_integration extends EA_Controller
         }
     }
 
-    /**
-     * Mask phone number for display.
-     */
-    private function mask_phone(string $phone): string
-    {
-        if (strlen($phone) < 8) {
-            return $phone;
-        }
-
-        $prefix = substr($phone, 0, 3);
-        $suffix = substr($phone, -4);
-        $masked = str_repeat('*', strlen($phone) - 7);
-
-        return $prefix . $masked . $suffix;
-    }
 
     /**
      * Get routine execution logs (AJAX).

@@ -361,4 +361,176 @@ class Console extends EA_Controller
             }
         }
     }
+
+    /**
+     * Audit server logs for exposed WhatsApp secret keys and sensitive data.
+     *
+     * Usage: php index.php console audit_whatsapp_logs [--fix]
+     *
+     * Scans application logs for:
+     * - WPPConnect secret keys in URLs
+     * - Bearer tokens in logs
+     * - Unencrypted credentials
+     *
+     * @param string|null $fix Optional '--fix' flag to sanitize logs
+     */
+    public function audit_whatsapp_logs(?string $fix = null): void
+    {
+        response("=== WhatsApp Integration Security Audit ===" . PHP_EOL . PHP_EOL);
+
+        $this->load->model('whatsapp_integration_settings_model');
+
+        // Get log directory from CodeIgniter config
+        $log_path = APPPATH . 'logs/';
+        $issues_found = 0;
+        $files_scanned = 0;
+
+        if (!is_dir($log_path)) {
+            response("ERROR: Log directory not found: {$log_path}" . PHP_EOL);
+            return;
+        }
+
+        response("Scanning logs in: {$log_path}" . PHP_EOL . PHP_EOL);
+
+        // Get current secret key from settings (to detect in logs)
+        try {
+            $settings = $this->whatsapp_integration_settings_model->get_settings();
+            $current_secret = $settings['secret_key'] ?? null;
+
+            if ($current_secret) {
+                response("[INFO] Current secret key loaded for detection" . PHP_EOL);
+            }
+        } catch (Throwable $e) {
+            response("[WARN] Could not load current secret key: " . $e->getMessage() . PHP_EOL);
+            $current_secret = null;
+        }
+
+        // Patterns to search for (sensitive data indicators)
+        $patterns = [
+            'secret_key' => '/\/api\/[^\/]+\/([a-zA-Z0-9_-]{10,})\/generate-token/i',
+            'bearer_token' => '/Authorization:\s*Bearer\s+([a-zA-Z0-9_-]{20,})/i',
+            'wpp_token' => '/"token"\s*:\s*"([a-zA-Z0-9_-]{20,})"/i',
+            'raw_secret' => '/"secret_key"\s*:\s*"([^"]{8,})"/i',
+        ];
+
+        // Scan log files
+        $log_files = glob($log_path . 'log-*.php');
+
+        if (empty($log_files)) {
+            response("No log files found to scan." . PHP_EOL);
+            return;
+        }
+
+        foreach ($log_files as $log_file) {
+            $files_scanned++;
+            $filename = basename($log_file);
+            $file_issues = [];
+
+            $content = file_get_contents($log_file);
+
+            foreach ($patterns as $type => $pattern) {
+                if (preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                    foreach ($matches[1] as $match) {
+                        $value = $match[0];
+                        $position = $match[1];
+
+                        // Calculate line number
+                        $line_num = substr_count(substr($content, 0, $position), "\n") + 1;
+
+                        // Check if it's the current secret key
+                        $is_current = ($current_secret && $type === 'secret_key' && $value === $current_secret);
+
+                        $file_issues[] = [
+                            'type' => $type,
+                            'line' => $line_num,
+                            'value' => $this->mask_sensitive_value($value),
+                            'is_current' => $is_current,
+                        ];
+
+                        $issues_found++;
+                    }
+                }
+            }
+
+            if (!empty($file_issues)) {
+                response("📄 {$filename}:" . PHP_EOL);
+
+                foreach ($file_issues as $issue) {
+                    $warning = $issue['is_current'] ? ' ⚠️ CURRENT SECRET!' : '';
+                    response("  Line {$issue['line']}: {$issue['type']} = {$issue['value']}{$warning}" . PHP_EOL);
+                }
+
+                response(PHP_EOL);
+
+                // If --fix flag is provided, sanitize this file
+                if ($fix === '--fix') {
+                    $this->sanitize_log_file($log_file, $patterns);
+                }
+            }
+        }
+
+        // Summary
+        response("=== Audit Summary ===" . PHP_EOL);
+        response("Files scanned: {$files_scanned}" . PHP_EOL);
+        response("Issues found: {$issues_found}" . PHP_EOL . PHP_EOL);
+
+        if ($issues_found > 0) {
+            response("⚠️  SECURITY RISK: Sensitive data found in logs!" . PHP_EOL . PHP_EOL);
+            response("Recommendations:" . PHP_EOL);
+            response("1. Rotate WhatsApp secret key immediately if CURRENT SECRET found" . PHP_EOL);
+            response("2. Run with --fix flag to sanitize logs: php index.php console audit_whatsapp_logs --fix" . PHP_EOL);
+            response("3. Review server access logs (nginx/apache) for similar exposures" . PHP_EOL);
+            response("4. Consider log rotation and retention policies" . PHP_EOL . PHP_EOL);
+
+            if ($current_secret && $issues_found > 0) {
+                response("To rotate the token, run:" . PHP_EOL);
+                response("  php index.php console rotate_whatsapp_token" . PHP_EOL);
+            }
+        } else {
+            response("✅ No sensitive data exposure detected in application logs." . PHP_EOL);
+        }
+    }
+
+    /**
+     * Mask sensitive value for display (show first 4 and last 4 chars).
+     */
+    private function mask_sensitive_value(string $value): string
+    {
+        $len = strlen($value);
+        if ($len <= 8) {
+            return str_repeat('*', $len);
+        }
+
+        return substr($value, 0, 4) . str_repeat('*', $len - 8) . substr($value, -4);
+    }
+
+    /**
+     * Sanitize a log file by replacing sensitive patterns with [REDACTED].
+     */
+    private function sanitize_log_file(string $file_path, array $patterns): void
+    {
+        $content = file_get_contents($file_path);
+        $original_size = strlen($content);
+        $replacements = 0;
+
+        foreach ($patterns as $type => $pattern) {
+            $content = preg_replace_callback($pattern, function($matches) use (&$replacements, $type) {
+                $replacements++;
+                // Replace the captured group (secret/token) with [REDACTED-{type}]
+                return str_replace($matches[1], '[REDACTED-' . strtoupper($type) . ']', $matches[0]);
+            }, $content);
+        }
+
+        if ($replacements > 0) {
+            // Backup original file
+            $backup_path = $file_path . '.backup-' . date('YmdHis');
+            copy($file_path, $backup_path);
+
+            // Write sanitized content
+            file_put_contents($file_path, $content);
+
+            response("  ✅ Sanitized " . basename($file_path) . " ({$replacements} replacements)" . PHP_EOL);
+            response("     Backup: " . basename($backup_path) . PHP_EOL);
+        }
+    }
 }

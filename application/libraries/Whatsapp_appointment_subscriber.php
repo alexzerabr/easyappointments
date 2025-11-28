@@ -177,7 +177,7 @@ class Whatsapp_appointment_subscriber
             'appointment_id' => $event->appointment_id,
             'template_id' => $template['id'],
             'status_key' => $appointment['status'],
-            'to_phone' => $this->mask_phone($phone),
+            'to_phone' => mask_phone_number($phone),
             'send_type' => $event->action_type,
             'provider' => 'wppconnect',
             'result' => 'PENDING',
@@ -248,21 +248,6 @@ class Whatsapp_appointment_subscriber
         log_message('info', 'No WhatsApp template found for appointment ' . $appointment_id . ' with status: ' . $status);
     }
 
-    /**
-     * Mascarar telefone para logs
-     */
-    private function mask_phone(string $phone): string
-    {
-        if (strlen($phone) < 8) {
-            return $phone;
-        }
-
-        $prefix = substr($phone, 0, 3);
-        $suffix = substr($phone, -4);
-        $masked = str_repeat('*', strlen($phone) - 7);
-
-        return $prefix . $masked . $suffix;
-    }
 
     /**
      * Verificar se o agendamento é o primeiro de uma série recorrente

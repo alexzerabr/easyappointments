@@ -140,6 +140,8 @@ ensure_dirs() {
         "${PRODUCTION_BASE}/logs/app"
         "${PRODUCTION_BASE}/config"
         "${PRODUCTION_BASE}/composer-cache"
+        "${PRODUCTION_BASE}/storage/heartbeat"
+        "${PRODUCTION_BASE}/storage/logs"
     )
     
     for dir in "${dirs[@]}"; do
@@ -260,14 +262,14 @@ ensure_env() {
     
     # Display generated credentials (ONLY once during creation)
     echo ""
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}   🔐 GENERATED CREDENTIALS - SAVE THESE SECURELY!${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${NC}"
+    echo -e "${GREEN}   GENERATED CREDENTIALS - SAVE THESE SECURELY${NC}"
+    echo -e "${GREEN}${NC}"
     echo -e "${WHITE}Database Password:${NC}        ${MYSQL_PASSWORD}"
     echo -e "${WHITE}MySQL Root Password:${NC}      ${MYSQL_ROOT_PASSWORD}"
     echo -e "${WHITE}WhatsApp Encryption Key:${NC}  ${WA_TOKEN_ENC_KEY}"
     echo -e "${WHITE}Backup Encryption Key:${NC}    ${BACKUP_ENCRYPTION_KEY}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${NC}"
     echo ""
     
     # Load the new environment
@@ -494,9 +496,9 @@ show_image_info() {
     local registry="${CONTAINER_REGISTRY:-ghcr.io/alexzerabr}"
     local full_image="${registry}/easyappointments:${image_tag}"
     
-    log_info "═══════════════════════════════════════════════════════════"
-    log_info "  INFORMAÇÕES DA IMAGEM"
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
+    log_info "  INFORMAES DA IMAGEM"
+    log_info ""
     echo ""
     
     log_info "Imagem: $full_image"
@@ -512,20 +514,20 @@ show_image_info() {
         local git_commit=$(docker inspect "$full_image" --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || echo "N/A")
         local image_id=$(docker inspect "$full_image" --format='{{.Id}}' 2>/dev/null | cut -d':' -f2 | cut -c1-12)
         
-        echo "📋 Metadados da Imagem:"
+        echo "Metadados da Imagem:"
         echo "   ID:      $image_id"
-        echo "   Versão:  $build_version"
+        echo "   Verso:  $build_version"
         echo "   Commit:  $git_commit"
         echo "   Data:    $build_date"
         
-        # Verifica se há versão dentro do container
+        # Verifica se h verso dentro do container
         if docker run --rm "$full_image" cat /etc/easyappointments-version 2>/dev/null; then
             echo ""
-            log_ok "Arquivo de versão encontrado"
+            log_ok "Arquivo de verso encontrado"
         fi
     else
-        log_warn "Imagem não encontrada localmente"
-        log_info "Execute 'docker pull $full_image' para baixá-la"
+        log_warn "Imagem no encontrada localmente"
+        log_info "Execute 'docker pull $full_image' para baix-la"
     fi
     
     echo ""
@@ -536,15 +538,15 @@ detect_image_changes() {
     local registry="${CONTAINER_REGISTRY:-ghcr.io/alexzerabr}"
     local full_image="${registry}/easyappointments:${image_tag}"
     
-    log_info "═══════════════════════════════════════════════════════════"
-    log_info "  DETECÇÃO DE MUDANÇAS NA IMAGEM"
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
+    log_info "  DETECO DE MUDANAS NA IMAGEM"
+    log_info ""
     echo ""
     
-    # Obtém ID da imagem local atual
+    # Obtm ID da imagem local atual
     local current_id=$(docker image inspect "$full_image" --format='{{.Id}}' 2>/dev/null || echo "none")
     
-    log_info "Verificando atualizações disponíveis..."
+    log_info "Verificando atualizaes disponveis..."
     
     # Faz pull da imagem mais recente (silencioso)
     if docker pull "$full_image" >/dev/null 2>&1; then
@@ -555,16 +557,16 @@ detect_image_changes() {
             show_image_info
             return 0
         elif [[ "$current_id" != "$new_id" ]]; then
-            log_ok "🔄 Nova versão disponível!"
+            log_ok " Nova verso disponvel!"
             echo ""
             
-            # Mostra informações da versão nova
+            # Mostra informaes da verso nova
             local new_version=$(docker inspect "$full_image" --format='{{index .Config.Labels "org.opencontainers.image.version"}}' 2>/dev/null || echo "N/A")
             local new_commit=$(docker inspect "$full_image" --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || echo "N/A")
             local new_date=$(docker inspect "$full_image" --format='{{index .Config.Labels "org.opencontainers.image.created"}}' 2>/dev/null || echo "N/A")
             
-            echo "📦 Nova Versão:"
-            echo "   Versão:  $new_version"
+            echo " Nova Verso:"
+            echo "   Verso:  $new_version"
             echo "   Commit:  $new_commit"
             echo "   Data:    $new_date"
             echo ""
@@ -572,24 +574,24 @@ detect_image_changes() {
             log_info "Para aplicar: sudo $(basename "$0") update"
             return 1
         else
-            log_ok "✅ Você está usando a versão mais recente"
+            log_ok " Voc est usando a verso mais recente"
             show_image_info
             return 0
         fi
     else
-        log_error "Falha ao verificar atualizações"
+        log_error "Falha ao verificar atualizaes"
         return 1
     fi
 }
 
 # =============================================================================
-# SMOKE TEST - Validação de imagem antes do deploy
+# SMOKE TEST - Validao de imagem antes do deploy
 # =============================================================================
 
 smoke_test() {
-    log_info "═══════════════════════════════════════════════════════════"
-    log_info "  SMOKE TEST - Validação de Imagem"
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
+    log_info "  SMOKE TEST - Validao de Imagem"
+    log_info ""
     
     local image_tag="${IMAGE_TAG:-latest}"
     local registry="${CONTAINER_REGISTRY:-ghcr.io/alexzerabr}"
@@ -604,29 +606,29 @@ smoke_test() {
         log_error "Falha ao fazer pull da imagem"
         return 1
     fi
-    log_ok "Pull concluído"
+    log_ok "Pull concludo"
     
-    # Verifica digest e informações
-    log_info "2/5 Verificando informações da imagem..."
+    # Verifica digest e informaes
+    log_info "2/5 Verificando informaes da imagem..."
     local image_digest=$(docker inspect "$full_image" --format='{{.Id}}' 2>/dev/null)
     local image_created=$(docker inspect "$full_image" --format='{{.Created}}' 2>/dev/null | cut -d'T' -f1)
     
     if [[ -z "$image_digest" ]]; then
-        log_error "Não foi possível obter digest da imagem"
+        log_error "No foi possvel obter digest da imagem"
         return 1
     fi
     
     log_ok "Digest: ${image_digest:0:20}..."
     log_ok "Criada em: $image_created"
     
-    # Inicia container temporário para testes
+    # Inicia container temporrio para testes
     log_info "3/5 Iniciando container de teste..."
     local test_container="easyappointments-smoke-test-$$"
     
     # Remove container anterior se existir
     docker rm -f "$test_container" >/dev/null 2>&1 || true
     
-    # Inicia container temporário
+    # Inicia container temporrio
     if ! docker run -d \
         --name "$test_container" \
         --env DATABASE_HOST=dummy \
@@ -641,8 +643,8 @@ smoke_test() {
     
     log_ok "Container de teste iniciado"
     
-    # Valida arquivos críticos dentro do container
-    log_info "4/5 Validando arquivos críticos..."
+    # Valida arquivos crticos dentro do container
+    log_info "4/5 Validando arquivos crticos..."
     
     local critical_files=(
         "/var/www/html/index.php"
@@ -650,27 +652,30 @@ smoke_test() {
         "/var/www/html/assets/css/general.min.css"
         "/var/www/html/assets/js/app.min.js"
         "/var/www/html/vendor/autoload.php"
+        "/var/www/html/application/migrations/064_add_whatsapp_message_logs_indexes.php"
+        "/var/www/html/scripts/whatsapp_worker.php"
+        "/var/www/html/scripts/check_whatsapp_worker_health.php"
     )
     
     local validation_failed=false
     
     for file in "${critical_files[@]}"; do
         if docker exec "$test_container" test -f "$file" 2>/dev/null; then
-            log_ok "✓ $(basename $file)"
+            log_ok " $(basename $file)"
         else
-            log_error "✗ $(basename $file) - NÃO ENCONTRADO"
+            log_error " $(basename $file) - NO ENCONTRADO"
             validation_failed=true
         fi
     done
     
     if [[ "$validation_failed" == "true" ]]; then
-        log_error "Validação de arquivos falhou"
+        log_error "Validao de arquivos falhou"
         docker rm -f "$test_container" >/dev/null 2>&1
         return 1
     fi
     
-    # Valida estrutura de diretórios
-    log_info "5/5 Validando estrutura de diretórios..."
+    # Valida estrutura de diretrios
+    log_info "5/5 Validando estrutura de diretrios..."
     
     local critical_dirs=(
         "/var/www/html/application"
@@ -681,9 +686,9 @@ smoke_test() {
     
     for dir in "${critical_dirs[@]}"; do
         if docker exec "$test_container" test -d "$dir" 2>/dev/null; then
-            log_ok "✓ $(basename $dir)/"
+            log_ok " $(basename $dir)/"
         else
-            log_error "✗ $(basename $dir)/ - NÃO ENCONTRADO"
+            log_error " $(basename $dir)/ - NO ENCONTRADO"
             validation_failed=true
         fi
     done
@@ -692,14 +697,14 @@ smoke_test() {
     docker rm -f "$test_container" >/dev/null 2>&1
     
     if [[ "$validation_failed" == "true" ]]; then
-        log_error "Validação da estrutura falhou"
+        log_error "Validao da estrutura falhou"
         return 1
     fi
     
     echo ""
-    log_ok "═══════════════════════════════════════════════════════════"
-    log_ok "  ✅ SMOKE TEST PASSOU - Imagem está funcional"
-    log_ok "═══════════════════════════════════════════════════════════"
+    log_ok ""
+    log_ok "   SMOKE TEST PASSOU - Imagem est funcional"
+    log_ok ""
     echo ""
     
     return 0
@@ -718,9 +723,9 @@ compose_up() {
     local is_initial="${1:-false}"
     
     if [[ "$is_initial" == "--initial" ]]; then
-        log_info "═══════════════════════════════════════════════════════════"
+        log_info ""
         log_info "  INITIAL PRODUCTION SETUP"
-        log_info "═══════════════════════════════════════════════════════════"
+        log_info ""
         
         # Prompt for ports
         prompt_ports
@@ -769,28 +774,57 @@ compose_up() {
     
     # Display success summary
     echo ""
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}   ✅ PRODUCTION ENVIRONMENT IS UP!${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${NC}"
+    echo -e "${GREEN}    PRODUCTION ENVIRONMENT IS UP!${NC}"
+    echo -e "${GREEN}${NC}"
     echo ""
     
     # Show access URLs
-    echo -e "${CYAN}🌐 Access URLs:${NC}"
+    echo -e "${CYAN} Access URLs:${NC}"
     echo -e "   Installation: ${WHITE}http://localhost:${http_port}/index.php/installation${NC}"
     echo -e "   Application:  ${WHITE}http://localhost:${http_port}${NC}"
     echo ""
     
     # Show container status
-    echo -e "${CYAN}🐳 Container Status:${NC}"
+    echo -e "${CYAN} Container Status:${NC}"
     compose_cmd ps
     echo ""
     
     if [[ "$is_initial" == "--initial" ]]; then
-        echo -e "${YELLOW}📋 Next Steps:${NC}"
+        echo -e "${YELLOW} Next Steps:${NC}"
         echo -e "   1. Complete installation at the URL above"
         echo -e "   2. Use database credentials from: ${WHITE}${ENV_FILE}${NC}"
         echo -e "   3. Configure email and WhatsApp settings"
         echo ""
+
+        # Prompt to run migrations after installation
+        echo -e "${CYAN}${NC}"
+        log_info "After completing installation through the web interface,"
+        log_info "it's RECOMMENDED to run database migrations to apply optimizations."
+        echo ""
+        read -p "Would you like to run migrations now? (recommended after installation) [y/N]: " run_migrations
+        echo ""
+
+        if [[ "$run_migrations" =~ ^[Yy]$ ]]; then
+            log_info "Waiting 5 seconds for installation to stabilize..."
+            sleep 5
+
+            log_info "Running database migrations..."
+            if compose_cmd exec -T php-fpm php index.php console migrate 2>&1 | tee /tmp/migration-output.log; then
+                log_ok " Migrations applied successfully"
+                log_ok "Performance optimizations (indexes) have been applied"
+            else
+                log_warn "Migrations failed or installation not completed yet"
+                log_warn "You can run migrations later with:"
+                log_warn "  docker compose exec php-fpm php index.php console migrate"
+            fi
+            echo ""
+        else
+            log_info "Skipping migrations for now."
+            log_info "Run migrations later with:"
+            log_info "  docker compose exec php-fpm php index.php console migrate"
+            echo ""
+        fi
     fi
     
     log_ok "Production environment started successfully"
@@ -842,9 +876,9 @@ compose_logs() {
 }
 
 compose_health() {
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
     log_info "  PRODUCTION HEALTH CHECK"
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
     
     cd "$PROJECT_ROOT"
     
@@ -852,7 +886,7 @@ compose_health() {
     
     # Check container status
     echo ""
-    echo -e "${CYAN}🐳 Container Status:${NC}"
+    echo -e "${CYAN} Container Status:${NC}"
     if ! compose_cmd ps 2>/dev/null; then
         log_error "Cannot query container status"
         exit_code=1
@@ -874,7 +908,7 @@ compose_health() {
     
     # Check MySQL health
     echo ""
-    echo -e "${CYAN}💾 Database Health:${NC}"
+    echo -e "${CYAN} Database Health:${NC}"
     if docker inspect easyappointments-mysql --format='{{.State.Health.Status}}' 2>/dev/null | grep -q "healthy"; then
         log_ok "MySQL is healthy"
     else
@@ -884,7 +918,7 @@ compose_health() {
     
     # Check HTTP endpoints
     echo ""
-    echo -e "${CYAN}🌐 HTTP Endpoints:${NC}"
+    echo -e "${CYAN} HTTP Endpoints:${NC}"
     local http_port="${HTTP_PORT:-80}"
     
     local install_status
@@ -905,24 +939,106 @@ compose_health() {
     else
         log_warn "Main application status: HTTP ${app_status} (may be normal during setup)"
     fi
-    
+
+    # Check WhatsApp Worker (optional - doesn't fail health check)
+    echo ""
+    echo -e "${CYAN} WhatsApp Worker:${NC}"
+    if worker_status >/dev/null 2>&1; then
+        log_ok "Worker is healthy"
+    else
+        log_warn "Worker is not running (this is OK if WhatsApp is not configured yet)"
+    fi
+
     # Summary
     echo ""
     print_separator
     if [[ $exit_code -eq 0 ]]; then
-        log_ok "All health checks passed ✅"
+        log_ok "All health checks passed "
     else
-        log_error "Some health checks failed ❌"
+        log_error "Some health checks failed "
     fi
     print_separator
     
     return $exit_code
 }
 
+# =============================================================================
+# WHATSAPP WORKER MANAGEMENT
+# =============================================================================
+
+worker_status() {
+    log_info "Checking WhatsApp Worker status..."
+
+    # Check if worker process is running
+    if docker exec easyappointments-php-fpm pgrep -f "whatsapp_worker.php" >/dev/null 2>&1; then
+        log_ok "Worker process is running"
+
+        # Check heartbeat health
+        if docker exec easyappointments-php-fpm php scripts/check_whatsapp_worker_health.php 2>/dev/null; then
+            log_ok "Worker is healthy"
+            return 0
+        else
+            log_warn "Worker process running but health check failed"
+            return 1
+        fi
+    else
+        log_warn "Worker process is not running"
+        return 1
+    fi
+}
+
+worker_start() {
+    log_info "Starting WhatsApp Worker..."
+
+    # Check if already running
+    if docker exec easyappointments-php-fpm pgrep -f "whatsapp_worker.php" >/dev/null 2>&1; then
+        log_warn "Worker is already running"
+        return 0
+    fi
+
+    # Ensure heartbeat directory exists
+    docker exec easyappointments-php-fpm mkdir -p /var/www/html/storage/heartbeat 2>/dev/null || true
+
+    # Start worker in background
+    docker exec -d easyappointments-php-fpm php scripts/whatsapp_worker.php
+
+    log_info "Waiting for worker to initialize..."
+    sleep 3
+
+    # Verify it started
+    if docker exec easyappointments-php-fpm pgrep -f "whatsapp_worker.php" >/dev/null 2>&1; then
+        log_ok " Worker started successfully"
+        return 0
+    else
+        log_error "Failed to start worker"
+        return 1
+    fi
+}
+
+worker_stop() {
+    log_info "Stopping WhatsApp Worker..."
+
+    if docker exec easyappointments-php-fpm pkill -f "whatsapp_worker.php" 2>/dev/null; then
+        log_ok "Worker stopped"
+        sleep 1
+        return 0
+    else
+        log_warn "Worker was not running"
+        return 0
+    fi
+}
+
+worker_restart() {
+    log_info "Restarting WhatsApp Worker..."
+    worker_stop
+    sleep 2
+    worker_start
+}
+
 compose_update() {
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
     log_info "  PRODUCTION UPDATE"
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
     
     cd "$PROJECT_ROOT"
     
@@ -960,13 +1076,32 @@ compose_update() {
     
     echo ""
     log_info "Running database migrations..."
-    if compose_cmd exec -T php-fpm php index.php console migrate 2>&1 | tee /tmp/migration-output.log; then
-        log_ok "Migrations completed"
-    else
-        log_error "Migrations failed - check /tmp/migration-output.log"
-        log_warn "You may need to run manually: docker compose exec php-fpm php index.php console migrate"
+    if ! compose_cmd exec -T php-fpm php index.php console migrate 2>&1 | tee /tmp/migration-output.log; then
+        echo ""
+        log_error ""
+        log_error "   MIGRATIONS FAILED - Update aborted!"
+        log_error ""
+        log_error "Database may be inconsistent. DO NOT continue."
+        log_error "Check logs: /tmp/migration-output.log"
+        echo ""
+        log_error "To rollback:"
+        log_error "  1. Restore from backup: ${PRODUCTION_BASE}/backups/"
+        log_error "  2. Or fix migration and re-run: docker compose exec php-fpm php index.php console migrate"
+        echo ""
+        return 1
     fi
-    
+    log_ok " Migrations completed successfully"
+
+    # Restart WhatsApp Worker with updated code
+    echo ""
+    log_info "Restarting WhatsApp Worker with updated code..."
+    if worker_restart; then
+        log_ok " Worker restarted successfully"
+    else
+        log_warn "Failed to restart worker - may need manual intervention"
+        log_warn "Start manually: docker exec -d easyappointments-php-fpm php scripts/whatsapp_worker.php"
+    fi
+
     echo ""
     log_info "Validating application response..."
     local http_port="${HTTP_PORT:-80}"
@@ -979,9 +1114,9 @@ compose_update() {
     fi
     
     echo ""
-    log_ok "═══════════════════════════════════════════════════════════"
-    log_ok "  ✅ UPDATE COMPLETED SUCCESSFULLY"
-    log_ok "═══════════════════════════════════════════════════════════"
+    log_ok ""
+    log_ok "   UPDATE COMPLETED SUCCESSFULLY"
+    log_ok ""
     echo ""
     
     # Show version information
@@ -998,9 +1133,9 @@ compose_update() {
 }
 
 compose_backup() {
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
     log_info "  PRODUCTION BACKUP"
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
     
     cd "$PROJECT_ROOT"
     
@@ -1059,9 +1194,9 @@ compose_backup() {
     fi
     
     echo ""
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}   ✅ BACKUP COMPLETED${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${NC}"
+    echo -e "${GREEN}    BACKUP COMPLETED${NC}"
+    echo -e "${GREEN}${NC}"
     echo -e "${WHITE}Location:${NC} ${backup_dir}"
     echo -e "${WHITE}Size:${NC}     ${backup_size}"
     echo -e "${WHITE}Files:${NC}"
@@ -1076,21 +1211,21 @@ compose_backup() {
 # =============================================================================
 
 compose_reset() {
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
     log_info "  PRODUCTION ENVIRONMENT RESET"
-    log_info "═══════════════════════════════════════════════════════════"
+    log_info ""
     
     echo ""
-    echo -e "${RED}⚠️  DANGER: Complete Production Environment Reset${NC}"
-    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}  DANGER: Complete Production Environment Reset${NC}"
+    echo -e "${RED}${NC}"
     echo -e "${YELLOW}This will permanently delete ALL production data:${NC}"
-    echo -e "  ${RED}✗${NC} All containers (stopped and removed)"
-    echo -e "  ${RED}✗${NC} All volumes (MySQL data, uploads, sessions)"
-    echo -e "  ${RED}✗${NC} Production network"
-    echo -e "  ${RED}✗${NC} Generated files (.env-prod, config.php, docker-compose.yml)"
+    echo -e "  ${RED}${NC} All containers (stopped and removed)"
+    echo -e "  ${RED}${NC} All volumes (MySQL data, uploads, sessions)"
+    echo -e "  ${RED}${NC} Production network"
+    echo -e "  ${RED}${NC} Generated files (.env-prod, config.php, docker-compose.yml)"
     echo ""
     echo -e "${YELLOW}This operation is IRREVERSIBLE!${NC}"
-    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}${NC}"
     echo ""
     
     read -p "Are you ABSOLUTELY sure? Type 'DESTROY' to confirm: " confirm
@@ -1098,7 +1233,7 @@ compose_reset() {
     
     if [[ "$confirm" != "DESTROY" ]]; then
         log_info "Reset operation cancelled by user"
-        echo -e "${GREEN}✅ No changes were made${NC}"
+        echo -e "${GREEN} No changes were made${NC}"
         return 0
     fi
     
@@ -1165,15 +1300,15 @@ compose_reset() {
     
     # Summary
     echo ""
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}   ✅ PRODUCTION RESET COMPLETED${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${NC}"
+    echo -e "${GREEN}    PRODUCTION RESET COMPLETED${NC}"
+    echo -e "${GREEN}${NC}"
     echo ""
     echo -e "${CYAN}Environment has been completely reset:${NC}"
-    echo -e "  ${GREEN}✓${NC} Containers stopped and removed"
-    echo -e "  ${GREEN}✓${NC} Volumes deleted (MySQL data, storage, assets)"
-    echo -e "  ${GREEN}✓${NC} Network removed"
-    echo -e "  ${GREEN}✓${NC} Generated files removed (.env-prod, config.php, docker-compose.yml)"
+    echo -e "  ${GREEN}${NC} Containers stopped and removed"
+    echo -e "  ${GREEN}${NC} Volumes deleted (MySQL data, storage, assets)"
+    echo -e "  ${GREEN}${NC} Network removed"
+    echo -e "  ${GREEN}${NC} Generated files removed (.env-prod, config.php, docker-compose.yml)"
     echo ""
     echo -e "${CYAN}To set up production again, run:${NC}"
     echo -e "  ${WHITE}sudo ./deploy/deploy-production.sh up --initial${NC}"
@@ -1208,7 +1343,7 @@ ${WHITE}COMMANDS:${NC}
   ${PURPLE}health${NC}            Check health of all services
 
   ${CYAN}update${NC}            Update to latest version
-                        (backup → pull → restart → migrate)
+                        (backup  pull  restart  migrate)
 
   ${WHITE}backup${NC}            Create full backup
                         (database + config + storage)
@@ -1222,6 +1357,11 @@ ${WHITE}COMMANDS:${NC}
 
   ${RED}reset${NC}             Complete production reset (DESTRUCTIVE!)
                         Removes all containers, volumes, network, and generated files
+
+  ${CYAN}worker-start${NC}      Start WhatsApp Worker process
+  ${CYAN}worker-stop${NC}       Stop WhatsApp Worker process
+  ${CYAN}worker-restart${NC}    Restart WhatsApp Worker process
+  ${CYAN}worker-status${NC}     Check WhatsApp Worker status and health
 
   ${WHITE}help${NC}              Show this help message
 
@@ -1258,6 +1398,11 @@ ${WHITE}EXAMPLES:${NC}
 
   # Complete reset (DANGEROUS - removes everything)
   sudo $(basename "$0") reset
+
+  # Manage WhatsApp Worker
+  $(basename "$0") worker-status
+  $(basename "$0") worker-start
+  $(basename "$0") worker-restart
 
 ${WHITE}FILES:${NC}
   Config:     ${CONFIG_FILE}
@@ -1365,7 +1510,39 @@ main() {
             ensure_prereqs
             detect_image_changes
             ;;
-        
+
+        worker-start|worker:start)
+            print_header
+            ensure_prereqs
+            ensure_compose
+            ensure_env
+            worker_start
+            ;;
+
+        worker-stop|worker:stop)
+            print_header
+            ensure_prereqs
+            ensure_compose
+            ensure_env
+            worker_stop
+            ;;
+
+        worker-restart|worker:restart)
+            print_header
+            ensure_prereqs
+            ensure_compose
+            ensure_env
+            worker_restart
+            ;;
+
+        worker-status|worker:status|worker)
+            print_header
+            ensure_prereqs
+            ensure_compose
+            ensure_env
+            worker_status
+            ;;
+
         help|--help|-h)
             show_help
             ;;

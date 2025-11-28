@@ -20,6 +20,21 @@ class Wppconnect_service
     private array $config;
 
     /**
+     * @var array|null Status cache
+     */
+    private ?array $status_cache = null;
+
+    /**
+     * @var int Timestamp of last status cache
+     */
+    private int $status_cache_time = 0;
+
+    /**
+     * @var int Status cache TTL in seconds
+     */
+    private const STATUS_CACHE_TTL = 10;
+
+    /**
      * WPPConnect Service constructor.
      */
     public function __construct()
@@ -73,14 +88,38 @@ class Wppconnect_service
 
     /**
      * Check if the WPPConnect session is connected.
+     *
+     * Accepts multiple "healthy" states that allow message sending:
+     * - CONNECTED: Fully connected and ready
+     * - PAIRING: Actively connecting (QR scanned, awaiting confirmation)
+     * - INITIALIZING: Starting up but functional
+     * - QRREADSUCESS: QR code read successfully
      */
     public function is_connected(): bool
     {
         try {
             $status = $this->get_status();
-            return isset($status['status']) && strtoupper((string)$status['status']) === 'CONNECTED';
+            $status_str = strtoupper((string)($status['status'] ?? ''));
+
+            // Accept multiple healthy states for message sending
+            $healthy_states = ['CONNECTED', 'PAIRING', 'INITIALIZING', 'QRREADSUCESS'];
+            return in_array($status_str, $healthy_states);
+
         } catch (Throwable $e) {
             log_message('error', 'WPPConnect is_connected check failed: ' . $e->getMessage());
+
+            // Fallback: Check last known status from cache (if recent)
+            $cached = $_SESSION['wppconnect_last_status'] ?? null;
+            if ($cached && (time() - $cached['timestamp']) < 60) { // Cache < 1 minute old
+                $cached_status = strtoupper((string)($cached['status'] ?? ''));
+                $healthy_states = ['CONNECTED', 'PAIRING', 'INITIALIZING', 'QRREADSUCESS'];
+
+                if (in_array($cached_status, $healthy_states)) {
+                    log_message('info', 'Using cached status for is_connected check: ' . $cached_status);
+                    return true;
+                }
+            }
+
             return false;
         }
     }
@@ -162,7 +201,8 @@ class Wppconnect_service
     {
         try {
             $base_url = $this->get_base_url();
-            
+            $verify_ssl = $this->should_verify_ssl();
+
             // Simple connectivity test - try to reach the base URL
             $ch = curl_init();
             curl_setopt_array($ch, [
@@ -171,7 +211,8 @@ class Wppconnect_service
                 CURLOPT_TIMEOUT => (int)(getenv('WPPCONNECT_TIMEOUT') ?: 30),
                 CURLOPT_CONNECTTIMEOUT => (int)(getenv('WPPCONNECT_CONNECT_TIMEOUT') ?: 10),
                 CURLOPT_NOBODY => true, // HEAD request
-                CURLOPT_SSL_VERIFYPEER => false, // For local development
+                CURLOPT_SSL_VERIFYPEER => $verify_ssl,
+                CURLOPT_SSL_VERIFYHOST => $verify_ssl ? 2 : 0,
                 CURLOPT_FOLLOWLOCATION => false,
             ]);
 
@@ -409,7 +450,10 @@ class Wppconnect_service
     }
 
     /**
-     * Get session status.
+     * Get session status with caching.
+     *
+     * Caches status for STATUS_CACHE_TTL seconds to avoid hammering the WPPConnect API
+     * and to provide resilience against temporary network blips.
      *
      * @return array Returns API response.
      *
@@ -417,14 +461,49 @@ class Wppconnect_service
      */
     public function get_status(): array
     {
+        // Return cached status if still fresh
+        if ($this->status_cache !== null &&
+            (time() - $this->status_cache_time) < self::STATUS_CACHE_TTL) {
+            log_message('debug', 'Returning cached WhatsApp status');
+            return $this->status_cache;
+        }
+
         $this->ensure_authenticated();
 
         $sessionSeg = rawurlencode((string)$this->config['session']);
         $url = $this->get_base_url() . '/api/' . $sessionSeg . '/status-session';
 
-        $response = $this->make_request('GET', $url);
+        try {
+            $response = $this->make_request('GET', $url);
 
-        return $response;
+            // Cache successful response
+            if (isset($response['status'])) {
+                $this->status_cache = $response;
+                $this->status_cache_time = time();
+
+                // Also persist to session for cross-request fallback
+                $_SESSION['wppconnect_last_status'] = [
+                    'status' => $response['status'],
+                    'timestamp' => time(),
+                ];
+
+                log_message('debug', 'Cached WhatsApp status: ' . $response['status']);
+            }
+
+            return $response;
+
+        } catch (Throwable $e) {
+            // If we have relatively fresh cache (< 60s), return it instead of failing
+            if ($this->status_cache !== null &&
+                (time() - $this->status_cache_time) < 60) {
+                log_message('warning', 'WPPConnect API failed, using stale cached status (age: ' .
+                    (time() - $this->status_cache_time) . 's)');
+                return $this->status_cache;
+            }
+
+            // No cache available, re-throw exception
+            throw $e;
+        }
     }
 
     /**
@@ -879,12 +958,7 @@ class Wppconnect_service
     private function mask_phone(string $phone): string
     {
         $phone = $this->normalize_phone($phone);
-        
-        if (strlen($phone) > 7) {
-            return substr($phone, 0, 3) . str_repeat('*', strlen($phone) - 7) . substr($phone, -4);
-        }
-
-        return str_repeat('*', strlen($phone));
+        return mask_phone_number($phone);
     }
 
     /**

@@ -84,7 +84,8 @@ $autoload['helper'] = [
     'setting',
     'string',
     'url',
-    'validation'
+    'validation',
+    'whatsapp_hooks'
 ];
 
 /*

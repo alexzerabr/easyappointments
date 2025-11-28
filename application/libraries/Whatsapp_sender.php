@@ -374,12 +374,7 @@ class Whatsapp_sender
         $masked = $customer;
         
         if (!empty($masked['phone_number'])) {
-            $phone = $masked['phone_number'];
-            if (strlen($phone) > 7) {
-                $masked['phone_number_masked'] = substr($phone, 0, 3) . str_repeat('*', strlen($phone) - 7) . substr($phone, -4);
-            } else {
-                $masked['phone_number_masked'] = str_repeat('*', strlen($phone));
-            }
+            $masked['phone_number_masked'] = mask_phone_number($masked['phone_number']);
         }
 
         // Remove sensitive fields

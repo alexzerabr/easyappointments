@@ -1,0 +1,48 @@
+[Unit]
+Description=EasyAppointments WhatsApp Worker
+Documentation=https://github.com/your-repo/easyappointments
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/html
+ExecStart=/usr/bin/php /var/www/html/scripts/whatsapp_worker.php
+Restart=always
+RestartSec=10
+
+# Watchdog configuration
+# Worker must write to heartbeat file every 120 seconds
+WatchdogSec=120
+# Send SIGKILL if worker doesn't respond to SIGTERM within 30s
+TimeoutStopSec=30
+
+# Environment variables (adjust as needed)
+Environment="APP_TIMEZONE=America/Sao_Paulo"
+Environment="WORKER_DB_HOST=mysql"
+Environment="WORKER_DB_USER=user"
+Environment="WORKER_DB_PASS=password"
+Environment="WORKER_DB_NAME=easyappointments"
+Environment="WORKER_INTERVAL=300"
+Environment="WORKER_NO_ROUTINES_INTERVAL=600"
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/html/storage/logs /var/www/html/storage/heartbeat
+
+# Resource limits
+MemoryLimit=256M
+CPUQuota=50%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=whatsapp-worker
+
+[Install]
+WantedBy=multi-user.target

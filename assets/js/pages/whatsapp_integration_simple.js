@@ -7,10 +7,10 @@ $(document).ready(function() {
 
     // Storage keys
     const STORAGE_KEYS = {
-    	HOST: 'whatsapp_host',
-    	SESSION: 'whatsapp_session',
-    	// Do NOT persist secret key or any token in localStorage for security
-    	SECRET_KEY: 'whatsapp_secret_key'
+    HOST: 'whatsapp_host',
+    SESSION: 'whatsapp_session',
+    // Do NOT persist secret key or any token in localStorage for security
+    SECRET_KEY: 'whatsapp_secret_key'
     };
 
     // Initialize settings from localStorage and server
@@ -201,33 +201,73 @@ $(document).ready(function() {
     // Initialize settings on page load
     initializeSettings();
 
-	// Use initial status from server (script_vars) to set buttons immediately
-	try {
-		const initStatus = (typeof vars === 'function' && vars('initial_session_status')) || null;
-		if (initStatus) {
-			updateButtonStates(String(initStatus).toUpperCase());
-		}
-	} catch (e) {}
+// Use initial status from server (script_vars) to set buttons immediately
+try {
+const initStatus = (typeof vars === 'function' && vars('initial_session_status')) || null;
+if (initStatus) {
+updateButtonStates(String(initStatus).toUpperCase());
+}
+} catch (e) {}
 
-	// Single background status check after page load to confirm
-	try { fetchStatusAndUpdateButtons(); } catch (e) {}
+// Single background status check after page load to confirm
+try { fetchStatusAndUpdateButtons(); } catch (e) {}
 
     // Background watcher (silent) to keep buttons in correct state
     let statusWatcherInterval = null;
+    let previousStatus = null;
+    let qrAutoRegenerateEnabled = false;
+
     function fetchStatusAndUpdateButtons() {
-		$.ajax({
+$.ajax({
             url: 'whatsapp_integration/get_status',
             type: 'GET',
-			data: { csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '') },
-			global: false,
+data: { csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '') },
+global: false,
             success: function(resp) {
                 const st = (resp && (resp.data?.status || resp.status)) ? (resp.data?.status || resp.status) : '';
-                if (st) updateButtonStates(st.toUpperCase());
+                const currentStatus = st.toUpperCase();
+
+                if (currentStatus) {
+                    // AUTO-REGENERATE QR: Detect QR timeout (session was waiting, now disconnected)
+                    if (qrAutoRegenerateEnabled &&
+                        previousStatus &&
+                        ['QRCODE', 'PAIRING', 'INITIALIZING'].includes(previousStatus) &&
+                        currentStatus === 'DISCONNECTED') {
+
+                        console.log('QR timeout detected - auto-regenerating new QR code...');
+
+                        // Auto-regenerate QR without closing session
+                        $.ajax({
+                            url: 'whatsapp_integration/start_session',
+                            type: 'POST',
+                            data: { csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '') },
+                            global: false,
+                            success: function(response) {
+                                if (response.success) {
+                                    console.log('New QR code generated successfully');
+                                    if (typeof toastr !== 'undefined') {
+                                        toastr.info('QR Code expirou. Novo QR gerado - aguardando leitura...');
+                                    }
+                                }
+                            },
+                            error: function() {
+                                console.error('Failed to regenerate QR code');
+                                qrAutoRegenerateEnabled = false; // Stop auto-regenerate on error
+                            }
+                        });
+                    }
+
+                    updateButtonStates(currentStatus);
+                    previousStatus = currentStatus;
+                }
             }
         });
     }
-    function startStatusWatcher() {
+
+    function startStatusWatcher(enableAutoRegenerate = false) {
         if (statusWatcherInterval) return;
+
+        qrAutoRegenerateEnabled = enableAutoRegenerate;
         fetchStatusAndUpdateButtons();
         statusWatcherInterval = setInterval(fetchStatusAndUpdateButtons, 5000);
     }
@@ -245,7 +285,7 @@ $(document).ready(function() {
         clearFieldHighlights();
 
         let html = '<div id="settings-error" class="alert alert-danger" role="alert">';
-        html += '<strong>Erro:</strong> ' + (message || 'Erro ao salvar configurações') + '<br/>';
+        html += '<strong>Erro:</strong> ' + (message || 'Erro ao salvar configuraes') + '<br/>';
         if (details) {
             try {
                 if (typeof details === 'object') {
@@ -286,28 +326,28 @@ $(document).ready(function() {
                     const url = new URL(details.base_url.includes('://') ? details.base_url : 'http://' + details.base_url);
                     const host = url.hostname || '';
                     const port = url.port || '';
-                    if (host) setFieldError('#whatsapp-host', (I18N.invalid_host || 'Host/URL inválido ou inacessível') + ': ' + host);
-                    if (port) setFieldError('#whatsapp-port', (I18N.invalid_host || 'Host/URL inválido ou inacessível') + ': ' + port);
+                    if (host) setFieldError('#whatsapp-host', (I18N.invalid_host || 'Host/URL invlido ou inacessvel') + ': ' + host);
+                    if (port) setFieldError('#whatsapp-port', (I18N.invalid_host || 'Host/URL invlido ou inacessvel') + ': ' + port);
                 } catch (e) {
                     // Fallback: mark host field generically
-                    setFieldError('#whatsapp-host', I18N.invalid_host || 'Host/URL inválido ou inacessível');
+                    setFieldError('#whatsapp-host', I18N.invalid_host || 'Host/URL invlido ou inacessvel');
                 }
             }
 
             if (details.step) {
                 switch (details.step) {
                     case 'missing_secret_key':
-                        setFieldError('#whatsapp-secret-key', I18N.secret_key_required || 'Chave secreta obrigatória para gerar token');
+                        setFieldError('#whatsapp-secret-key', I18N.secret_key_required || 'Chave secreta obrigatria para gerar token');
                         break;
                     case 'token_generation_failed':
                     case 'token_generated':
                     case 'token_generation':
                         // likely secret_key or session issue
-                        setFieldError('#whatsapp-secret-key', I18N.token_generation_failed || 'Falha na geração do token. Verifique chave secreta e sessão.');
-                        setFieldError('#whatsapp-session', I18N.invalid_host || 'Verifique o nome da sessão');
+                        setFieldError('#whatsapp-secret-key', I18N.token_generation_failed || 'Falha na gerao do token. Verifique chave secreta e sesso.');
+                        setFieldError('#whatsapp-session', I18N.invalid_host || 'Verifique o nome da sesso');
                         break;
                     case 'status_check_failed':
-                        setFieldError('#whatsapp-host', I18N.connectivity_failed || 'Falha ao verificar status da sessão. Host/porta/sessão podem estar incorretos');
+                        setFieldError('#whatsapp-host', I18N.connectivity_failed || 'Falha ao verificar status da sesso. Host/porta/sesso podem estar incorretos');
                         break;
                 }
             }
@@ -316,12 +356,12 @@ $(document).ready(function() {
             if (typeof details === 'string') {
                 const txt = details.toLowerCase();
                 if (txt.includes('connection refused') || txt.includes('could not resolve') || txt.includes('timed out')) {
-                    setFieldError('#whatsapp-host', I18N.invalid_host || 'Host inacessível (connection refused / timeout)');
+                    setFieldError('#whatsapp-host', I18N.invalid_host || 'Host inacessvel (connection refused / timeout)');
                 }
             } else if (typeof details === 'object') {
                 const flat = JSON.stringify(details).toLowerCase();
                 if (flat.includes('connection refused') || flat.includes('timeout') || flat.includes('could not resolve')) {
-                    setFieldError('#whatsapp-host', I18N.invalid_host || 'Host inacessível (connection refused / timeout)');
+                    setFieldError('#whatsapp-host', I18N.invalid_host || 'Host inacessvel (connection refused / timeout)');
                 }
             }
         } catch (e) {
@@ -396,12 +436,12 @@ $(document).ready(function() {
             success: function(response) {
                 console.log('Save success:', response);
                 
-                let message = response.message || 'Configurações salvas com sucesso!';
+                let message = response.message || 'Configuraes salvas com sucesso!';
                 
                 if (response.token_generated) {
-                    message += '\n\n✓ Token gerado automaticamente!';
+                    message += '\n\n Token gerado automaticamente!';
                 } else if (response.token_message) {
-                    message += '\n\n⚠ ' + response.token_message;
+                    message += '\n\n ' + response.token_message;
                 }
                 
                 // Do NOT update token input from server responses. Token must not be sent to client.
@@ -454,7 +494,7 @@ $(document).ready(function() {
                 showSettingsError(errorMsg, details);
             },
             complete: function() {
-                $btn.prop('disabled', false).html('<i class="fas fa-save me-2"></i>Salvar Configurações');
+                $btn.prop('disabled', false).html('<i class="fas fa-save me-2"></i>Salvar Configuraes');
             }
         });
     });
@@ -466,13 +506,13 @@ $(document).ready(function() {
         const $btn = $(this);
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Testando...');
         
-		$.ajax({
+$.ajax({
             url: 'whatsapp_integration/test_connectivity',
             type: 'POST',
             data: {
                 csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '')
-			},
-			global: false,
+},
+global: false,
             success: function(response) {
                 console.log('Test connectivity success:', response);
                 // If status info present, update badge once
@@ -483,17 +523,17 @@ $(document).ready(function() {
                     }
                 } catch (e) {}
                 if (response.success) {
-					if (typeof toastr !== 'undefined') toastr.success('Conectividade testada com sucesso!');
-					else alert('Conectividade testada com sucesso!');
+if (typeof toastr !== 'undefined') toastr.success('Conectividade testada com sucesso!');
+else alert('Conectividade testada com sucesso!');
                 } else {
-					if (typeof toastr !== 'undefined') toastr.error('Erro na conectividade: ' + (response.message || 'Erro desconhecido'));
-					else alert('Erro na conectividade: ' + (response.message || 'Erro desconhecido'));
+if (typeof toastr !== 'undefined') toastr.error('Erro na conectividade: ' + (response.message || 'Erro desconhecido'));
+else alert('Erro na conectividade: ' + (response.message || 'Erro desconhecido'));
                 }
             },
             error: function(xhr, status, error) {
                 console.error('Test connectivity error:', xhr, status, error);
-				if (typeof toastr !== 'undefined') toastr.error('Erro ao testar conectividade: ' + error);
-				else alert('Erro ao testar conectividade: ' + error);
+if (typeof toastr !== 'undefined') toastr.error('Erro ao testar conectividade: ' + error);
+else alert('Erro ao testar conectividade: ' + error);
             },
             complete: function() {
                 $btn.prop('disabled', false).html('<i class="fas fa-network-wired me-2"></i>Testar Conectividade');
@@ -529,31 +569,31 @@ $(document).ready(function() {
         const $btn = $(this);
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Iniciando...');
         
-		$.ajax({
+$.ajax({
             url: 'whatsapp_integration/start_session',
             type: 'POST',
             data: {
                 csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '')
-			},
-			global: false,
+},
+global: false,
             success: function(response) {
                 console.log('Start session success:', response);
                 if (response.success) {
-					if (typeof toastr !== 'undefined') toastr.success('Sessão iniciada com sucesso!');
-					else alert('Sessão iniciada com sucesso!');
-                    startStatusWatcher();
+if (typeof toastr !== 'undefined') toastr.success('Sesso iniciada com sucesso!');
+else alert('Sesso iniciada com sucesso!');
+                    startStatusWatcher(true); // Enable QR auto-regenerate
                 } else {
-					if (typeof toastr !== 'undefined') toastr.error('Erro ao iniciar sessão: ' + (response.message || 'Erro desconhecido'));
-					else alert('Erro ao iniciar sessão: ' + (response.message || 'Erro desconhecido'));
+if (typeof toastr !== 'undefined') toastr.error('Erro ao iniciar sesso: ' + (response.message || 'Erro desconhecido'));
+else alert('Erro ao iniciar sesso: ' + (response.message || 'Erro desconhecido'));
                 }
             },
             error: function(xhr, status, error) {
                 console.error('Start session error:', xhr, status, error);
-				if (typeof toastr !== 'undefined') toastr.error('Erro ao iniciar sessão: ' + error);
-				else alert('Erro ao iniciar sessão: ' + error);
+if (typeof toastr !== 'undefined') toastr.error('Erro ao iniciar sesso: ' + error);
+else alert('Erro ao iniciar sesso: ' + error);
             },
             complete: function() {
-                $btn.prop('disabled', false).html('<i class="fas fa-play me-2"></i>Iniciar Sessão');
+                $btn.prop('disabled', false).html('<i class="fas fa-play me-2"></i>Iniciar Sesso');
             }
         });
     });
@@ -564,33 +604,37 @@ $(document).ready(function() {
         const $btn = $(this);
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Fechando...');
         
-	$.ajax({
+$.ajax({
             url: 'whatsapp_integration/close_session',
             type: 'POST',
             data: {
                 csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '')
-			},
-			global: false,
+},
+global: false,
             success: function(response) {
                 console.log('Close session success:', response);
                 if (response.success) {
-					if (typeof toastr !== 'undefined') toastr.success('Sessão fechada com sucesso!');
-					else alert('Sessão fechada com sucesso!');
+if (typeof toastr !== 'undefined') toastr.success('Sesso fechada com sucesso!');
+else alert('Sesso fechada com sucesso!');
+                    // Disable auto-regenerate when manually closing session
+                    qrAutoRegenerateEnabled = false;
+                    previousStatus = null;
                     // Single status refresh after close
                     updateSessionStatus({ status: 'DISCONNECTED' });
+                    stopStatusWatcher();
                     startStatusWatcher();
                 } else {
-					if (typeof toastr !== 'undefined') toastr.error('Erro ao fechar sessão: ' + (response.message || 'Erro desconhecido'));
-					else alert('Erro ao fechar sessão: ' + (response.message || 'Erro desconhecido'));
+if (typeof toastr !== 'undefined') toastr.error('Erro ao fechar sesso: ' + (response.message || 'Erro desconhecido'));
+else alert('Erro ao fechar sesso: ' + (response.message || 'Erro desconhecido'));
                 }
             },
             error: function(xhr, status, error) {
                 console.error('Close session error:', xhr, status, error);
-				if (typeof toastr !== 'undefined') toastr.error('Erro ao fechar sessão: ' + error);
-				else alert('Erro ao fechar sessão: ' + error);
+if (typeof toastr !== 'undefined') toastr.error('Erro ao fechar sesso: ' + error);
+else alert('Erro ao fechar sesso: ' + error);
             },
             complete: function() {
-                $btn.prop('disabled', false).html('<i class="fas fa-pause me-2"></i>Fechar Sessão');
+                $btn.prop('disabled', false).html('<i class="fas fa-pause me-2"></i>Fechar Sesso');
             }
         });
     });
@@ -601,33 +645,37 @@ $(document).ready(function() {
         const $btn = $(this);
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Desconectando...');
         
-	$.ajax({
+$.ajax({
             url: 'whatsapp_integration/logout_session',
             type: 'POST',
             data: {
                 csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '')
-			},
-			global: false,
+},
+global: false,
             success: function(response) {
                 console.log('Logout session success:', response);
                 if (response.success) {
-					if (typeof toastr !== 'undefined') toastr.success('Sessão desconectada com sucesso!');
-					else alert('Sessão desconectada com sucesso!');
+if (typeof toastr !== 'undefined') toastr.success('Sesso desconectada com sucesso!');
+else alert('Sesso desconectada com sucesso!');
+                    // Disable auto-regenerate when manually revoking session
+                    qrAutoRegenerateEnabled = false;
+                    previousStatus = null;
                     // Single status refresh after logout
                     updateSessionStatus({ status: 'DISCONNECTED' });
+                    stopStatusWatcher();
                     startStatusWatcher();
                 } else {
-					if (typeof toastr !== 'undefined') toastr.error('Erro ao desconectar sessão: ' + (response.message || 'Erro desconhecido'));
-					else alert('Erro ao desconectar sessão: ' + (response.message || 'Erro desconhecido'));
+if (typeof toastr !== 'undefined') toastr.error('Erro ao desconectar sesso: ' + (response.message || 'Erro desconhecido'));
+else alert('Erro ao desconectar sesso: ' + (response.message || 'Erro desconhecido'));
                 }
             },
             error: function(xhr, status, error) {
                 console.error('Logout session error:', xhr, status, error);
-				if (typeof toastr !== 'undefined') toastr.error('Erro ao desconectar sessão: ' + error);
-				else alert('Erro ao desconectar sessão: ' + error);
+if (typeof toastr !== 'undefined') toastr.error('Erro ao desconectar sesso: ' + error);
+else alert('Erro ao desconectar sesso: ' + error);
             },
             complete: function() {
-                $btn.prop('disabled', false).html('<i class="fas fa-sign-out-alt me-2"></i>Desconectar Sessão');
+                $btn.prop('disabled', false).html('<i class="fas fa-sign-out-alt me-2"></i>Desconectar Sesso');
             }
         });
     });
@@ -641,26 +689,26 @@ $(document).ready(function() {
         const $btn = $(this);
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Carregando...');
         
-	$.ajax({
+$.ajax({
             url: 'whatsapp_integration/start_session',
             type: 'POST',
             data: {
                 csrf_token: (typeof vars !== 'undefined' ? vars('csrf_token') : '')
-			},
-			global: false,
+},
+global: false,
             success: function(response) {
                 console.log('Start session success:', response);
                 if (response.success && response.data && response.data.qrcode) {
                     showQrModal(response.data.qrcode);
                 } else {
-					if (typeof toastr !== 'undefined') toastr.error('QR Code não disponível: ' + (response.message || 'Erro desconhecido'));
-					else alert('QR Code não disponível: ' + (response.message || 'Erro desconhecido'));
+if (typeof toastr !== 'undefined') toastr.error('QR Code no disponvel: ' + (response.message || 'Erro desconhecido'));
+else alert('QR Code no disponvel: ' + (response.message || 'Erro desconhecido'));
                 }
             },
             error: function(xhr, status, error) {
                 console.error('Show QR error:', xhr, status, error);
-				if (typeof toastr !== 'undefined') toastr.error('Erro ao obter QR Code: ' + error);
-				else alert('Erro ao obter QR Code: ' + error);
+if (typeof toastr !== 'undefined') toastr.error('Erro ao obter QR Code: ' + error);
+else alert('Erro ao obter QR Code: ' + error);
             },
             complete: function() {
                 $btn.prop('disabled', false).html('<i class="fas fa-qrcode me-2"></i>Mostrar QR Code');
@@ -934,7 +982,7 @@ $(document).ready(function() {
             success: function(response) {
                 console.log('Template deleted:', response);
                 if (response.success) {
-                    alert('Template excluído com sucesso!');
+                    alert('Template excludo com sucesso!');
                     loadTemplates();
                 } else {
                     alert('Erro ao excluir template: ' + (response.message || 'Erro desconhecido'));
@@ -1053,7 +1101,7 @@ $(document).ready(function() {
     
     // Clear logs
     function clearLogs() {
-        if (!confirm('Tem certeza que deseja limpar todos os logs? Esta ação não pode ser desfeita.')) {
+        if (!confirm('Tem certeza que deseja limpar todos os logs? Esta ao no pode ser desfeita.')) {
             return;
         }
         
@@ -1255,7 +1303,7 @@ $(document).ready(function() {
         
         // Validate required fields
         if (!formData.name || !formData.status_key || !formData.body) {
-            alert('Por favor, preencha todos os campos obrigatórios.');
+            alert('Por favor, preencha todos os campos obrigatrios.');
             return;
         }
         
@@ -1326,7 +1374,7 @@ $(document).ready(function() {
         const language = $('#template-language').val() || 'pt-BR';
         
         if (!body.trim()) {
-            alert('Digite o conteúdo do template para visualizar');
+            alert('Digite o contedo do template para visualizar');
             return;
         }
         
@@ -1358,10 +1406,10 @@ $(document).ready(function() {
     let testTabInitialized = false;
     let testSending = false;
     function initializeTestTab() {
-        if (testTabInitialized) return; // evitar múltiplos binds ao alternar abas
+        if (testTabInitialized) return; // evitar mltiplos binds ao alternar abas
         testTabInitialized = true;
 
-        // Test form submission (bind único)
+        // Test form submission (bind nico)
         $('#test-message-form').off('submit').on('submit', function(e) {
             e.preventDefault();
             if (testSending) return; // evitar envios concorrentes
@@ -1623,7 +1671,7 @@ $(document).ready(function() {
         
         // Validate phone format
         if (!phone.match(/^\+?[1-9]\d{1,14}$/)) {
-            alert('Formato de telefone inválido. Use o formato: +5535988143613');
+            alert('Formato de telefone invlido. Use o formato: +5535988143613');
             return;
         }
         
@@ -1648,7 +1696,7 @@ $(document).ready(function() {
                 } else {
                     alert(ok ? 'Mensagem enviada com sucesso...' : (response?.message || 'Falha em enviar mensagem...'));
                 }
-                // Limpar campos após envio bem-sucedido
+                // Limpar campos aps envio bem-sucedido
                 if (ok) {
                     $('#test-phone').val('');
                     $('#test-message').val('');
@@ -1799,7 +1847,7 @@ $(document).ready(function() {
             },
             error: function(xhr) {
                 console.error('Failed to load execution logs:', xhr);
-                const msg = xhr.responseJSON?.message || 'Falha ao carregar logs de execução';
+                const msg = xhr.responseJSON?.message || 'Falha ao carregar logs de execuo';
                 if (typeof toastr !== 'undefined') {
                     toastr.error(msg);
                 } else {
@@ -1815,7 +1863,7 @@ $(document).ready(function() {
         $tbody.empty();
         
         if (!logs || logs.length === 0) {
-            $tbody.append('<tr><td colspan="10" class="text-center text-muted">Nenhum log de execução encontrado</td></tr>');
+            $tbody.append('<tr><td colspan="10" class="text-center text-muted">Nenhum log de execuo encontrado</td></tr>');
             return;
         }
         
