@@ -79,7 +79,7 @@ class Migration_Add_whatsapp_message_logs_indexes extends EA_Migration
             if (!$this->db->query("SHOW INDEX FROM {$routine_sends_table} WHERE Key_name = 'idx_routine_appointment'")->num_rows()) {
                 $this->db->query("
                     ALTER TABLE {$routine_sends_table}
-                    ADD INDEX idx_routine_appointment (routine_id, appointment_id, sent_datetime)
+                    ADD INDEX idx_routine_appointment (routine_id, appointment_id, sent_at)
                 ");
             }
         }
