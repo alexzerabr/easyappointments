@@ -722,10 +722,11 @@ App.Components.AppointmentsModal = (function () {
                     previewText += `(${start} - ${end})`;
 
                     $recurringPreviewText.text(previewText);
-                    
+
                     if (response.conflicts && response.conflicts.length > 0) {
+                        const conflictDates = response.conflicts.map(c => moment(c.date).format('DD/MM/YYYY')).join(', ');
                         $recurringPreviewText.append(
-                            ` - <strong class="text-warning">${response.conflicts.length} conflicts</strong>`
+                            ` - <strong class="text-danger">${response.conflicts.length} conflito(s): ${conflictDates}</strong>`
                         );
                     }
                 } else {
