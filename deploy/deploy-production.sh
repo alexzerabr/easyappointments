@@ -1099,7 +1099,22 @@ compose_update() {
         log_error "Check logs: docker logs easyappointments-php-fpm"
         return 1
     fi
-    
+
+    echo ""
+    log_info "Rebuilding frontend assets with latest code changes..."
+    if npm run build 2>&1 | grep -E "(Finished|errored)" | grep -v "errored" >/dev/null; then
+        log_ok "Frontend rebuild completed"
+
+        log_info "Synchronizing rebuilt assets to containers..."
+        find build/assets -name "*.min.js" -o -name "*.min.css" | while read -r file; do
+            relative_path="${file#build/}"
+            docker cp "$file" "easyappointments-php-fpm:/var/www/html/${relative_path}" 2>/dev/null || true
+        done
+        log_ok "All rebuilt assets synchronized"
+    else
+        log_warn "Frontend rebuild had issues, but update completed"
+    fi
+
     echo ""
     log_ok "========================================================"
     log_ok "   UPDATE COMPLETED SUCCESSFULLY"
