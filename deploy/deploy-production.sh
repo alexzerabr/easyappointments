@@ -1025,20 +1025,41 @@ compose_update() {
     compose_backup
     
     echo ""
+
+    log_info "Installing NPM dependencies..."
+    if ! npm install --silent 2>&1 | grep -v "npm warn"; then
+        log_warn "NPM install had warnings, continuing..."
+    fi
+    log_ok "NPM dependencies installed"
+
+    log_info "Building frontend assets (JS/CSS)..."
+    if npm run build 2>&1 | grep -E "(Finished|errored)" | grep -v "errored" >/dev/null; then
+        log_ok "Frontend assets built successfully"
+    else
+        log_warn "Frontend build had issues, continuing anyway..."
+    fi
+
     log_info "Stopping containers..."
     compose_cmd down --remove-orphans
-    
+
     log_info "Pulling latest Docker images..."
     if ! compose_cmd pull; then
         error_exit "Failed to pull images"
     fi
-    
+
     log_info "Cleaning up old images..."
     docker image prune -f >/dev/null 2>&1 || true
-    
+
     log_info "Starting updated environment with FORCE_UPDATE..."
     export FORCE_UPDATE=true
     compose_up
+
+    log_info "Copying built assets to containers..."
+    if [[ -f "build/assets/js/pages/whatsapp_integration_simple.min.js" ]]; then
+        docker cp build/assets/js/pages/whatsapp_integration_simple.min.js easyappointments-php-fpm:/var/www/html/assets/js/pages/ 2>/dev/null || true
+        docker cp build/assets/js/http/whatsapp_integration_http_client.min.js easyappointments-php-fpm:/var/www/html/assets/js/http/ 2>/dev/null || true
+        log_ok "Assets synchronized to containers"
+    fi
 
     echo ""
     log_info "Running database migrations..."
