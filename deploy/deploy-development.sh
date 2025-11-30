@@ -461,6 +461,51 @@ ensure_storage_permissions() {
     fi
 }
 
+ensure_migrations_permissions() {
+    log "INFO" "Verificando permissões dos arquivos de migração..."
+
+    # Verifica se diretório de migrations existe
+    if [ ! -d "application/migrations" ]; then
+        log "WARN" "Diretório application/migrations não encontrado"
+        return 0
+    fi
+
+    # Conta quantos arquivos precisam de correção
+    local files_to_fix=$(find application/migrations -type f -name "*.php" ! -perm 644 2>/dev/null | wc -l)
+
+    if [ "$files_to_fix" -eq 0 ]; then
+        log "SUCCESS" "Permissões dos arquivos de migração OK (644)"
+        return 0
+    fi
+
+    log "WARN" "Encontrados $files_to_fix arquivo(s) de migração com permissões incorretas"
+    log "INFO" "Aplicando permissões 644 em application/migrations/*.php..."
+
+    # Corrige permissões dos arquivos de migração
+    # 644 = rw-r--r-- (owner: read/write, group: read, others: read)
+    if find application/migrations -type f -name "*.php" -exec chmod 644 {} \; 2>/dev/null; then
+        log "SUCCESS" "Permissões dos arquivos de migração corrigidas (644)"
+
+        # Lista arquivos que foram corrigidos para auditoria
+        local corrected=$(find application/migrations -type f -name "*.php" -perm 644 | wc -l)
+        log "INFO" "Total de arquivos de migração com permissões corretas: $corrected"
+    else
+        log "ERROR" "Falha ao corrigir permissões dos arquivos de migração"
+        log "INFO" "Execute manualmente: chmod 644 application/migrations/*.php"
+        return 1
+    fi
+
+    # Verifica se há arquivos com permissões muito restritivas (como 600)
+    local restrictive=$(find application/migrations -type f -name "*.php" -perm 600 2>/dev/null | wc -l)
+    if [ "$restrictive" -gt 0 ]; then
+        log "WARN" "Ainda há $restrictive arquivo(s) com permissões muito restritivas (600)"
+        find application/migrations -type f -name "*.php" -perm 600 2>/dev/null | while read -r file; do
+            log "WARN" "  - $file"
+            chmod 644 "$file" 2>/dev/null || log "ERROR" "Falha ao corrigir: $file"
+        done
+    fi
+}
+
 # =============================================================================
 # COMANDOS PRINCIPAIS
 # =============================================================================
@@ -532,7 +577,10 @@ cmd_up() {
     
     # Instala dependências do Composer se necessário
     setup_dependencies
-    
+
+    # Garante permissões corretas dos arquivos de migração
+    ensure_migrations_permissions
+
     # Garante permissões corretas do storage
     ensure_storage_permissions
     

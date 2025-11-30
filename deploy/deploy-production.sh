@@ -30,39 +30,31 @@ readonly HTTP_TIMEOUT=10
 readonly HTTP_MAX_ATTEMPTS=30
 readonly SERVICE_WAIT_TIME=5
 
-# Colors for output
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly PURPLE='\033[0;35m'
-readonly CYAN='\033[0;36m'
-readonly WHITE='\033[1;37m'
-readonly NC='\033[0m'
+# Colors removed - using plain text output
 
 # =============================================================================
 # LOGGING FUNCTIONS
 # =============================================================================
 
 log_ok() {
-    echo -e "${GREEN}[OK]${NC} $*"
+    echo "[OK] $*"
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $*"
+    echo "[WARN] $*"
 }
 
 log_error() {
-    echo -e "${RED}[ERR]${NC} $*"
+    echo "[ERR] $*"
 }
 
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $*"
+    echo "[INFO] $*"
 }
 
 log_debug() {
     if [[ "${DEBUG:-false}" == "true" ]]; then
-        echo -e "${PURPLE}[DEBUG]${NC} $*"
+        echo "[DEBUG] $*"
     fi
 }
 
@@ -72,15 +64,15 @@ error_exit() {
 }
 
 print_header() {
-    echo -e "${CYAN}"
+    echo ""
     echo "============================================================"
     echo "  EasyAppointments Production Manager v${SCRIPT_VERSION}"
     echo "============================================================"
-    echo -e "${NC}"
+    echo ""
 }
 
 print_separator() {
-    echo -e "${CYAN}------------------------------------------------------------${NC}"
+    echo "------------------------------------------------------------"
 }
 
 # =============================================================================
@@ -180,12 +172,12 @@ generate_hex_key() {
 
 generate_secrets() {
     log_info "Generating secure credentials..."
-    
+
     MYSQL_ROOT_PASSWORD=$(generate_password 32)
     MYSQL_PASSWORD=$(generate_password 24)
-    WA_TOKEN_ENC_KEY=$(generate_hex_key 32)
-    BACKUP_ENCRYPTION_KEY=$(generate_hex_key 32)
-    
+    WA_TOKEN_ENC_KEY=$(openssl rand -hex 32)
+    BACKUP_ENCRYPTION_KEY=$(openssl rand -hex 32)
+
     log_ok "Credentials generated securely"
 }
 
@@ -223,7 +215,7 @@ ensure_env() {
         if [[ ${#missing_vars[@]} -gt 0 ]]; then
             error_exit "Missing required variables in ${ENV_FILE}: ${missing_vars[*]}"
         fi
-        
+
         log_ok "Environment loaded successfully"
         return 0
     fi
@@ -246,6 +238,7 @@ ensure_env() {
     sed -i "s/CHANGE_THIS_STRONG_PASSWORD/${MYSQL_PASSWORD}/g" "$ENV_FILE"
     sed -i "s/CHANGE_THIS_ROOT_PASSWORD/${MYSQL_ROOT_PASSWORD}/g" "$ENV_FILE"
     sed -i "s/CHANGE_THIS_GENERATE_NEW_KEY_WITH_OPENSSL/${WA_TOKEN_ENC_KEY}/g" "$ENV_FILE"
+    sed -i "s/CHANGE_THIS_GENERATE_WITH_OPENSSL_RAND_HEX_32/${WA_TOKEN_ENC_KEY}/g" "$ENV_FILE"
     sed -i "s/CHANGE_THIS_BACKUP_KEY/${BACKUP_ENCRYPTION_KEY}/g" "$ENV_FILE"
     
     # Add production-specific settings if not present
@@ -262,14 +255,14 @@ ensure_env() {
     
     # Display generated credentials (ONLY once during creation)
     echo ""
-    echo -e "${GREEN}${NC}"
-    echo -e "${GREEN}   GENERATED CREDENTIALS - SAVE THESE SECURELY${NC}"
-    echo -e "${GREEN}${NC}"
-    echo -e "${WHITE}Database Password:${NC}        ${MYSQL_PASSWORD}"
-    echo -e "${WHITE}MySQL Root Password:${NC}      ${MYSQL_ROOT_PASSWORD}"
-    echo -e "${WHITE}WhatsApp Encryption Key:${NC}  ${WA_TOKEN_ENC_KEY}"
-    echo -e "${WHITE}Backup Encryption Key:${NC}    ${BACKUP_ENCRYPTION_KEY}"
-    echo -e "${GREEN}${NC}"
+    echo "========================================================"
+    echo "   GENERATED CREDENTIALS - SAVE THESE SECURELY"
+    echo "========================================================"
+    echo "Database Password:        ${MYSQL_PASSWORD}"
+    echo "MySQL Root Password:      ${MYSQL_ROOT_PASSWORD}"
+    echo "WhatsApp Encryption Key:  ${WA_TOKEN_ENC_KEY}"
+    echo "Backup Encryption Key:    ${BACKUP_ENCRYPTION_KEY}"
+    echo "========================================================"
     echo ""
     
     # Load the new environment
@@ -774,57 +767,30 @@ compose_up() {
     
     # Display success summary
     echo ""
-    echo -e "${GREEN}${NC}"
-    echo -e "${GREEN}    PRODUCTION ENVIRONMENT IS UP!${NC}"
-    echo -e "${GREEN}${NC}"
+    echo "========================================================"
+    echo "    PRODUCTION ENVIRONMENT IS UP!"
+    echo "========================================================"
     echo ""
-    
+
     # Show access URLs
-    echo -e "${CYAN} Access URLs:${NC}"
-    echo -e "   Installation: ${WHITE}http://localhost:${http_port}/index.php/installation${NC}"
-    echo -e "   Application:  ${WHITE}http://localhost:${http_port}${NC}"
+    echo " Access URLs:"
+    echo "   Installation: http://localhost:${http_port}/index.php/installation"
+    echo "   Application:  http://localhost:${http_port}"
     echo ""
-    
+
     # Show container status
-    echo -e "${CYAN} Container Status:${NC}"
+    echo " Container Status:"
     compose_cmd ps
     echo ""
-    
+
     if [[ "$is_initial" == "--initial" ]]; then
-        echo -e "${YELLOW} Next Steps:${NC}"
-        echo -e "   1. Complete installation at the URL above"
-        echo -e "   2. Use database credentials from: ${WHITE}${ENV_FILE}${NC}"
-        echo -e "   3. Configure email and WhatsApp settings"
+        echo " Next Steps:"
+        echo "   1. Complete installation at the URL above"
+        echo "   2. Use database credentials from: ${ENV_FILE}"
+        echo "   3. Configure email and WhatsApp settings"
+        echo "   4. After installation, run migrations with:"
+        echo "      docker compose exec php-fpm php index.php console migrate"
         echo ""
-
-        # Prompt to run migrations after installation
-        echo -e "${CYAN}${NC}"
-        log_info "After completing installation through the web interface,"
-        log_info "it's RECOMMENDED to run database migrations to apply optimizations."
-        echo ""
-        read -p "Would you like to run migrations now? (recommended after installation) [y/N]: " run_migrations
-        echo ""
-
-        if [[ "$run_migrations" =~ ^[Yy]$ ]]; then
-            log_info "Waiting 5 seconds for installation to stabilize..."
-            sleep 5
-
-            log_info "Running database migrations..."
-            if compose_cmd exec -T php-fpm php index.php console migrate 2>&1 | tee /tmp/migration-output.log; then
-                log_ok " Migrations applied successfully"
-                log_ok "Performance optimizations (indexes) have been applied"
-            else
-                log_warn "Migrations failed or installation not completed yet"
-                log_warn "You can run migrations later with:"
-                log_warn "  docker compose exec php-fpm php index.php console migrate"
-            fi
-            echo ""
-        else
-            log_info "Skipping migrations for now."
-            log_info "Run migrations later with:"
-            log_info "  docker compose exec php-fpm php index.php console migrate"
-            echo ""
-        fi
     fi
     
     log_ok "Production environment started successfully"
@@ -839,8 +805,8 @@ compose_down() {
         log_warn "No running containers found"
         return 0
     fi
-    
-    echo -e "${CYAN}Current containers:${NC}"
+
+    echo "Current containers:"
     compose_cmd ps
     echo ""
     
@@ -886,7 +852,7 @@ compose_health() {
     
     # Check container status
     echo ""
-    echo -e "${CYAN} Container Status:${NC}"
+    echo " Container Status:"
     if ! compose_cmd ps 2>/dev/null; then
         log_error "Cannot query container status"
         exit_code=1
@@ -908,17 +874,17 @@ compose_health() {
     
     # Check MySQL health
     echo ""
-    echo -e "${CYAN} Database Health:${NC}"
+    echo " Database Health:"
     if docker inspect easyappointments-mysql --format='{{.State.Health.Status}}' 2>/dev/null | grep -q "healthy"; then
         log_ok "MySQL is healthy"
     else
         log_error "MySQL is not healthy"
         exit_code=1
     fi
-    
+
     # Check HTTP endpoints
     echo ""
-    echo -e "${CYAN} HTTP Endpoints:${NC}"
+    echo " HTTP Endpoints:"
     local http_port="${HTTP_PORT:-80}"
     
     local install_status
@@ -942,7 +908,7 @@ compose_health() {
 
     # Check WhatsApp Worker (optional - doesn't fail health check)
     echo ""
-    echo -e "${CYAN} WhatsApp Worker:${NC}"
+    echo " WhatsApp Worker:"
     if worker_status >/dev/null 2>&1; then
         log_ok "Worker is healthy"
     else
@@ -1073,7 +1039,7 @@ compose_update() {
     log_info "Starting updated environment with FORCE_UPDATE..."
     export FORCE_UPDATE=true
     compose_up
-    
+
     echo ""
     log_info "Running database migrations..."
     if ! compose_cmd exec -T php-fpm php index.php console migrate 2>&1 | tee /tmp/migration-output.log; then
@@ -1090,7 +1056,7 @@ compose_update() {
         echo ""
         return 1
     fi
-    log_ok " Migrations completed successfully"
+    log_ok "Migrations completed successfully"
 
     # Restart WhatsApp Worker with updated code
     echo ""
@@ -1114,21 +1080,21 @@ compose_update() {
     fi
     
     echo ""
-    log_ok ""
+    log_ok "========================================================"
     log_ok "   UPDATE COMPLETED SUCCESSFULLY"
-    log_ok ""
+    log_ok "========================================================"
     echo ""
-    
+
     # Show version information
     log_info "Checking update details..."
     local update_timestamp
     update_timestamp=$(docker exec easyappointments-php-fpm cat /var/www/html/.docker-init-complete 2>/dev/null || echo "unknown")
     local image_digest
     image_digest=$(docker exec easyappointments-php-fpm cat /var/www/html/.docker-image-digest 2>/dev/null || echo "unknown")
-    
-    echo -e "${CYAN}Update Information:${NC}"
-    echo -e "   Last Updated:  ${WHITE}$(date -d @${update_timestamp} '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo 'unknown')${NC}"
-    echo -e "   Image Digest:  ${WHITE}${image_digest}${NC}"
+
+    echo "Update Information:"
+    echo "   Last Updated:  $(date -d @${update_timestamp} '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo 'unknown')"
+    echo "   Image Digest:  ${image_digest}"
     echo ""
 }
 
@@ -1194,12 +1160,12 @@ compose_backup() {
     fi
     
     echo ""
-    echo -e "${GREEN}${NC}"
-    echo -e "${GREEN}    BACKUP COMPLETED${NC}"
-    echo -e "${GREEN}${NC}"
-    echo -e "${WHITE}Location:${NC} ${backup_dir}"
-    echo -e "${WHITE}Size:${NC}     ${backup_size}"
-    echo -e "${WHITE}Files:${NC}"
+    echo "========================================================"
+    echo "    BACKUP COMPLETED"
+    echo "========================================================"
+    echo "Location: ${backup_dir}"
+    echo "Size:     ${backup_size}"
+    echo "Files:"
     ls -lh "$backup_dir" 2>/dev/null | tail -n +2 | awk '{print "   - " $9 " (" $5 ")"}'
     echo ""
     
@@ -1216,16 +1182,16 @@ compose_reset() {
     log_info ""
     
     echo ""
-    echo -e "${RED}  DANGER: Complete Production Environment Reset${NC}"
-    echo -e "${RED}${NC}"
-    echo -e "${YELLOW}This will permanently delete ALL production data:${NC}"
-    echo -e "  ${RED}${NC} All containers (stopped and removed)"
-    echo -e "  ${RED}${NC} All volumes (MySQL data, uploads, sessions)"
-    echo -e "  ${RED}${NC} Production network"
-    echo -e "  ${RED}${NC} Generated files (.env-prod, config.php, docker-compose.yml)"
+    echo "  DANGER: Complete Production Environment Reset"
+    echo "========================================================"
+    echo "This will permanently delete ALL production data:"
+    echo "  * All containers (stopped and removed)"
+    echo "  * All volumes (MySQL data, uploads, sessions)"
+    echo "  * Production network"
+    echo "  * Generated files (.env-prod, config.php, docker-compose.yml)"
     echo ""
-    echo -e "${YELLOW}This operation is IRREVERSIBLE!${NC}"
-    echo -e "${RED}${NC}"
+    echo "This operation is IRREVERSIBLE!"
+    echo "========================================================"
     echo ""
     
     read -p "Are you ABSOLUTELY sure? Type 'DESTROY' to confirm: " confirm
@@ -1233,7 +1199,7 @@ compose_reset() {
     
     if [[ "$confirm" != "DESTROY" ]]; then
         log_info "Reset operation cancelled by user"
-        echo -e "${GREEN} No changes were made${NC}"
+        echo " No changes were made"
         return 0
     fi
     
@@ -1300,21 +1266,21 @@ compose_reset() {
     
     # Summary
     echo ""
-    echo -e "${GREEN}${NC}"
-    echo -e "${GREEN}    PRODUCTION RESET COMPLETED${NC}"
-    echo -e "${GREEN}${NC}"
+    echo "========================================================"
+    echo "    PRODUCTION RESET COMPLETED"
+    echo "========================================================"
     echo ""
-    echo -e "${CYAN}Environment has been completely reset:${NC}"
-    echo -e "  ${GREEN}${NC} Containers stopped and removed"
-    echo -e "  ${GREEN}${NC} Volumes deleted (MySQL data, storage, assets)"
-    echo -e "  ${GREEN}${NC} Network removed"
-    echo -e "  ${GREEN}${NC} Generated files removed (.env-prod, config.php, docker-compose.yml)"
+    echo "Environment has been completely reset:"
+    echo "  * Containers stopped and removed"
+    echo "  * Volumes deleted (MySQL data, storage, assets)"
+    echo "  * Network removed"
+    echo "  * Generated files removed (.env-prod, config.php, docker-compose.yml)"
     echo ""
-    echo -e "${CYAN}To set up production again, run:${NC}"
-    echo -e "  ${WHITE}sudo ./deploy/deploy-production.sh up --initial${NC}"
+    echo "To set up production again, run:"
+    echo "  sudo ./deploy/deploy-production.sh up --initial"
     echo ""
-    echo -e "${YELLOW}Note:${NC} Docker images were preserved for faster rebuilds."
-    echo -e "      To remove images manually: ${WHITE}docker image prune -a${NC}"
+    echo "Note: Docker images were preserved for faster rebuilds."
+    echo "      To remove images manually: docker image prune -a"
     echo ""
     
     log_ok "Reset completed successfully"
@@ -1326,46 +1292,46 @@ compose_reset() {
 
 show_help() {
     print_header
-    
+
     cat << EOF
-${WHITE}USAGE:${NC}
+USAGE:
   $(basename "$0") COMMAND [OPTIONS]
 
-${WHITE}COMMANDS:${NC}
-  ${GREEN}up [--initial]${NC}    Start production environment
-                        Use --initial for first-time setup
+COMMANDS:
+  up [--initial]    Start production environment
+                    Use --initial for first-time setup
 
-  ${YELLOW}down${NC}              Stop production environment
+  down              Stop production environment
 
-  ${BLUE}logs [-f] [SERVICE]${NC}
-                        View logs (-f to follow, SERVICE to filter)
+  logs [-f] [SERVICE]
+                    View logs (-f to follow, SERVICE to filter)
 
-  ${PURPLE}health${NC}            Check health of all services
+  health            Check health of all services
 
-  ${CYAN}update${NC}            Update to latest version
-                        (backup  pull  restart  migrate)
+  update            Update to latest version
+                    (backup + pull + restart + migrate)
 
-  ${WHITE}backup${NC}            Create full backup
-                        (database + config + storage)
+  backup            Create full backup
+                    (database + config + storage)
 
-  ${CYAN}smoke-test${NC}        Validate Docker image integrity
-                        Tests image before deploy (recommended)
+  smoke-test        Validate Docker image integrity
+                    Tests image before deploy (recommended)
 
-  ${PURPLE}image-info${NC}        Show current image version and metadata
+  image-info        Show current image version and metadata
 
-  ${PURPLE}check-updates${NC}     Check for new image versions available
+  check-updates     Check for new image versions available
 
-  ${RED}reset${NC}             Complete production reset (DESTRUCTIVE!)
-                        Removes all containers, volumes, network, and generated files
+  reset             Complete production reset (DESTRUCTIVE!)
+                    Removes all containers, volumes, network, and generated files
 
-  ${CYAN}worker-start${NC}      Start WhatsApp Worker process
-  ${CYAN}worker-stop${NC}       Stop WhatsApp Worker process
-  ${CYAN}worker-restart${NC}    Restart WhatsApp Worker process
-  ${CYAN}worker-status${NC}     Check WhatsApp Worker status and health
+  worker-start      Start WhatsApp Worker process
+  worker-stop       Stop WhatsApp Worker process
+  worker-restart    Restart WhatsApp Worker process
+  worker-status     Check WhatsApp Worker status and health
 
-  ${WHITE}help${NC}              Show this help message
+  help              Show this help message
 
-${WHITE}EXAMPLES:${NC}
+EXAMPLES:
   # First installation (prompts for ports, generates credentials)
   sudo $(basename "$0") up --initial
 
@@ -1404,19 +1370,19 @@ ${WHITE}EXAMPLES:${NC}
   $(basename "$0") worker-start
   $(basename "$0") worker-restart
 
-${WHITE}FILES:${NC}
+FILES:
   Config:     ${CONFIG_FILE}
   Compose:    ${COMPOSE_FILE}
   Env:        ${ENV_FILE}
   Backups:    ${PRODUCTION_BASE}/backups/
   Logs:       ${PRODUCTION_BASE}/logs/
 
-${WHITE}ISOLATION:${NC}
+ISOLATION:
   Project:    easyappointments_prod
   Volumes:    ea_mysql_data, ea_storage, ea_assets
   Containers: easyappointments-*
 
-${WHITE}VERSION:${NC} ${SCRIPT_VERSION}
+VERSION: ${SCRIPT_VERSION}
 
 EOF
 }
