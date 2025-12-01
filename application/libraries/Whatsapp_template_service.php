@@ -281,6 +281,11 @@ class Whatsapp_template_service
                 'example' => '10:00',
             ],
             [
+                'placeholder' => '{{dia_semana}}',
+                'description' => 'Dia da semana do agendamento',
+                'example' => 'Segunda-feira',
+            ],
+            [
                 'placeholder' => '{{nome_servico}}',
                 'description' => 'Nome do serviço',
                 'example' => 'Consulta',

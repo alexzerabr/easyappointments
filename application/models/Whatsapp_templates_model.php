@@ -332,6 +332,7 @@ class Whatsapp_templates_model extends EA_Model
             '{{e-mail}}',
             '{{data_agendamento}}',
             '{{hora_agendamento}}',
+            '{{dia_semana}}',
             '{{nome_servico}}',
             '{{local}}',
             '{{link}}', // same in both languages
@@ -391,6 +392,20 @@ class Whatsapp_templates_model extends EA_Model
         $appointment_date = date('Y-m-d', strtotime($appointment['start_datetime']));
         $appointment_time = date('H:i', strtotime($appointment['start_datetime']));
 
+        // Format weekday based on language/locale
+        $timestamp = strtotime($appointment['start_datetime']);
+        $day_number = date('w', $timestamp);
+        $weekdays_pt = [
+            0 => 'Domingo',
+            1 => 'Segunda-feira',
+            2 => 'Terça-feira',
+            3 => 'Quarta-feira',
+            4 => 'Quinta-feira',
+            5 => 'Sexta-feira',
+            6 => 'Sábado'
+        ];
+        $dia_semana = $weekdays_pt[$day_number];
+
         if ($language === 'pt-BR' || $language === 'portuguese-br') {
             $appointment_date = date('d/m/Y', strtotime($appointment['start_datetime']));
         }
@@ -427,6 +442,7 @@ class Whatsapp_templates_model extends EA_Model
             '{{e-mail}}' => $email,
             '{{data_agendamento}}' => $appointment_date,
             '{{hora_agendamento}}' => $appointment_time,
+            '{{dia_semana}}' => $dia_semana,
             '{{nome_servico}}' => $service['name'] ?? '',
             '{{local}}' => $appointment['location'] ?? $service['location'] ?? '',
             '{{link}}' => site_url('appointments/book/' . $appointment['hash']),

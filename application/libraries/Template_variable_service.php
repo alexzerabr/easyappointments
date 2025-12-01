@@ -63,6 +63,13 @@ class Template_variable_service {
                 'description' => 'Horário do agendamento'
             ],
             [
+                'key' => 'dia_semana',
+                'display' => '{{dia_semana}}',
+                'example' => 'Segunda-feira',
+                'source' => 'appointment',
+                'description' => 'Dia da semana do agendamento'
+            ],
+            [
                 'key' => 'nome_servico',
                 'display' => '{{nome_servico}}',
                 'example' => 'Consulta Clínica',
@@ -182,6 +189,7 @@ class Template_variable_service {
             'email' => 'maria@example.com',
             'appointment_date' => $this->format_date($sample_date, 'en'),
             'appointment_time' => $this->format_time($sample_date, 'en'),
+            'dia_semana' => $this->format_weekday($sample_date, 'pt-BR'),
             'service_name' => 'Consulta Clínica',
             'location' => 'Av. Paulista, 1000',
             'company_name' => $this->get_company_name(),
@@ -215,6 +223,30 @@ class Template_variable_service {
      */
     private function format_time($date, $locale = 'pt-BR') {
         return date('H:i', strtotime($date));
+    }
+
+    /**
+     * Formata dia da semana conforme locale
+     */
+    private function format_weekday($date, $locale = 'pt-BR') {
+        $timestamp = strtotime($date);
+        $day_number = date('w', $timestamp); // 0 (domingo) a 6 (sábado)
+
+        if ($locale === 'pt-BR') {
+            $weekdays = [
+                0 => 'Domingo',
+                1 => 'Segunda-feira',
+                2 => 'Terça-feira',
+                3 => 'Quarta-feira',
+                4 => 'Quinta-feira',
+                5 => 'Sexta-feira',
+                6 => 'Sábado'
+            ];
+            return $weekdays[$day_number];
+        }
+
+        // Para outros locales, retorna em inglês
+        return date('l', $timestamp);
     }
     
     /**
@@ -250,6 +282,7 @@ class Template_variable_service {
                 'email' => $email,
                 'appointment_date' => $this->format_date($appointment['start_datetime'], 'en'),
                 'appointment_time' => $this->format_time($appointment['start_datetime'], 'en'),
+                'dia_semana' => $this->format_weekday($appointment['start_datetime'], 'pt-BR'),
                 'service_name' => $service['name'] ?? '',
                 'location' => $provider['address'] ?? '',
                 'company_name' => $this->get_company_name(),
