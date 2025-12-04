@@ -145,18 +145,24 @@ class Whatsapp_routine_logger
             return;
         }
 
-        // Get customer name for logging
+        // Get customer name for logging - reload appointment to ensure fresh data
         $customer_name = 'Unknown';
+        $customer_id = null;
         try {
-            if (!empty($appointment['id_users_customer'])) {
-                $customer = $this->CI->customers_model->find($appointment['id_users_customer']);
+            // Reload appointment from database to get fresh id_users_customer
+            $this->CI->load->model('appointments_model');
+            $fresh_appointment = $this->CI->appointments_model->find((int)$appointment['id']);
+            $customer_id = $fresh_appointment['id_users_customer'] ?? $appointment['id_users_customer'] ?? null;
+
+            if (!empty($customer_id)) {
+                $customer = $this->CI->customers_model->find((int)$customer_id);
                 $customer_name = trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? ''));
                 if (empty($customer_name)) {
-                    $customer_name = $customer['email'] ?? 'Customer ID: ' . $appointment['id_users_customer'];
+                    $customer_name = $customer['email'] ?? 'Customer ID: ' . $customer_id;
                 }
             }
         } catch (Exception $e) {
-            log_message('error', 'Failed to load customer for routine log: ' . $e->getMessage());
+            log_message('error', 'Failed to load customer for routine log (appt=' . ($appointment['id'] ?? 'unknown') . ', customer=' . ($customer_id ?? 'unknown') . '): ' . $e->getMessage());
         }
 
         // Update the execution log with success information
@@ -175,18 +181,24 @@ class Whatsapp_routine_logger
             return;
         }
 
-        // Get customer name for logging
+        // Get customer name for logging - reload appointment to ensure fresh data
         $customer_name = 'Unknown';
+        $customer_id = null;
         try {
-            if (!empty($appointment['id_users_customer'])) {
-                $customer = $this->CI->customers_model->find($appointment['id_users_customer']);
+            // Reload appointment from database to get fresh id_users_customer
+            $this->CI->load->model('appointments_model');
+            $fresh_appointment = $this->CI->appointments_model->find((int)$appointment['id']);
+            $customer_id = $fresh_appointment['id_users_customer'] ?? $appointment['id_users_customer'] ?? null;
+
+            if (!empty($customer_id)) {
+                $customer = $this->CI->customers_model->find((int)$customer_id);
                 $customer_name = trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? ''));
                 if (empty($customer_name)) {
-                    $customer_name = $customer['email'] ?? 'Customer ID: ' . $appointment['id_users_customer'];
+                    $customer_name = $customer['email'] ?? 'Customer ID: ' . $customer_id;
                 }
             }
         } catch (Exception $e) {
-            log_message('error', 'Failed to load customer for routine log: ' . $e->getMessage());
+            log_message('error', 'Failed to load customer for routine log (appt=' . ($appointment['id'] ?? 'unknown') . ', customer=' . ($customer_id ?? 'unknown') . '): ' . $e->getMessage());
         }
 
         // Update the execution log with failure information
