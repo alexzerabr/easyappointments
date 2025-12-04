@@ -47,8 +47,9 @@ class Rotinas_whatsapp_model extends EA_Model
             ->where('ea_appointments.start_datetime >=', $sql_from)
             ->where('ea_appointments.start_datetime <=', $sql_to)
             ->group_start()
-                ->where('s.appointment_id IS NULL', null, false) // Never sent
-                ->or_where('(s.appointment_start_time != ea_appointments.start_datetime OR s.routine_hours_before != ' . (int)$hours_before . ')', null, false) // Appointment time changed or routine config changed
+                ->where('s.appointment_id IS NULL', null, false)
+                ->or_where('s.sent_at IS NULL', null, false)
+                ->or_where('(s.appointment_start_time != ea_appointments.start_datetime OR s.routine_hours_before != ' . (int)$hours_before . ')', null, false)
             ->group_end();
 
         $query = $this->db->get();
@@ -169,12 +170,15 @@ class Rotinas_whatsapp_model extends EA_Model
      */
     public function mark_sent(int $routine_id, int $appointment_id, ?int $log_id = null, ?string $calculated_send_time = null, ?string $appointment_start_time = null, ?int $routine_hours_before = null): bool
     {
-        // First, remove any existing record for this routine+appointment combination
+        if (empty($log_id)) {
+            log_message('warning', 'Attempt to mark_sent without log_id for routine ' . $routine_id . ', appointment ' . $appointment_id);
+            return false;
+        }
+
         $this->db->where('routine_id', $routine_id)
                  ->where('appointment_id', $appointment_id)
                  ->delete('ea_whatsapp_routine_sends');
-        
-        // Insert new record with reprocessing data
+
         return (bool)$this->db->insert('ea_whatsapp_routine_sends', [
             'routine_id' => $routine_id,
             'appointment_id' => $appointment_id,
