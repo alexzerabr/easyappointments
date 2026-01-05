@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+
+# Simple development container startup script
+# The heavy lifting (dependency installation, etc.) is done by entrypoint-development.sh
+
+echo "🔵 Starting PHP-FPM in development mode..."
+
+# Start PHP-FPM in foreground
+exec php-fpm -F
+

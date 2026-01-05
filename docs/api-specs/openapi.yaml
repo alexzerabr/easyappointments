@@ -1,0 +1,1946 @@
+openapi: 3.0.3
+info:
+  title: Easy!Appointments API
+  version: 1.5.2
+  description: |
+    API RESTful para o sistema de agendamentos Easy!Appointments.
+
+    ## Autenticacao
+
+    A API suporta tres metodos de autenticacao:
+
+    ### 1. JWT Bearer Token (Recomendado para Mobile/SPA)
+    Obtenha tokens via `/auth/login` e use o access_token:
+    ```
+    Authorization: Bearer <jwt_access_token>
+    ```
+    - Access token expira em 15 minutos
+    - Use `/auth/refresh` para renovar com o refresh_token (7 dias)
+
+    ### 2. API Token (Recomendado para Integracao)
+    Use o token de API configurado nas configuracoes do sistema.
+    ```
+    Authorization: Bearer <api_token>
+    ```
+
+    ### 3. Basic Auth (Legacy)
+    Use credenciais de um usuario administrador.
+    ```
+    Authorization: Basic base64(username:password)
+    ```
+
+    ## Paginacao
+
+    Endpoints de listagem suportam paginacao:
+    - `page` - Numero da pagina (default: 1)
+    - `length` - Itens por pagina (default: 20)
+
+    ## Ordenacao
+
+    Use o parametro `sort` com prefixo `+` (ASC) ou `-` (DESC):
+    ```
+    ?sort=-startDatetime,+id
+    ```
+
+    ## Filtros
+
+    - `q` - Busca textual
+    - `fields` - Campos especificos (comma-separated)
+    - `with` - Eager loading de relacoes
+
+    ## Rate Limiting
+
+    - 100 requests por 2 minutos por IP
+    - Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`
+
+  contact:
+    name: Hubsoft
+    email: dev@hubsoft.com.br
+  license:
+    name: GPL-3.0
+    url: https://opensource.org/licenses/GPL-3.0
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Authentication
+    description: Endpoints de autenticacao JWT
+  - name: Appointments
+    description: Gerenciamento de agendamentos
+  - name: Customers
+    description: Gerenciamento de clientes
+  - name: Services
+    description: Servicos disponiveis
+  - name: Providers
+    description: Profissionais/prestadores
+  - name: Admins
+    description: Usuarios administradores
+  - name: Secretaries
+    description: Secretarias
+  - name: Service Categories
+    description: Categorias de servicos
+  - name: Unavailabilities
+    description: Periodos de indisponibilidade
+  - name: Blocked Periods
+    description: Periodos bloqueados
+  - name: Settings
+    description: Configuracoes do sistema
+  - name: Availabilities
+    description: Verificacao de disponibilidade
+  - name: Webhooks
+    description: Configuracao de webhooks
+
+components:
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtido via /auth/login
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: API Token configurado nas configuracoes do sistema
+    basicAuth:
+      type: http
+      scheme: basic
+      description: Credenciais de usuario administrador
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Numero da pagina
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    LengthParam:
+      name: length
+      in: query
+      description: Itens por pagina
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+    SearchParam:
+      name: q
+      in: query
+      description: Termo de busca
+      schema:
+        type: string
+    SortParam:
+      name: sort
+      in: query
+      description: "Ordenacao (ex: -startDatetime,+id)"
+      schema:
+        type: string
+    FieldsParam:
+      name: fields
+      in: query
+      description: Campos a retornar (comma-separated)
+      schema:
+        type: string
+    WithParam:
+      name: with
+      in: query
+      description: Relacoes para eager loading
+      schema:
+        type: string
+    DateParam:
+      name: date
+      in: query
+      description: Filtrar por data especifica (YYYY-MM-DD)
+      schema:
+        type: string
+        format: date
+    FromParam:
+      name: from
+      in: query
+      description: Data inicial (YYYY-MM-DD)
+      schema:
+        type: string
+        format: date
+    TillParam:
+      name: till
+      in: query
+      description: Data final (YYYY-MM-DD)
+      schema:
+        type: string
+        format: date
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Mensagem de erro
+        exception:
+          type: string
+          description: Tipo da excecao
+      example:
+        message: "Resource not found"
+        exception: "RuntimeException"
+
+    # Authentication Schemas
+    AuthLoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Nome de usuario
+          example: admin
+        password:
+          type: string
+          format: password
+          description: Senha do usuario
+          example: secret123
+        device_name:
+          type: string
+          description: Nome do dispositivo (opcional)
+          example: iPhone 15 Pro
+
+    AuthTokens:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token (15 minutos)
+        refresh_token:
+          type: string
+          description: Refresh token (7 dias)
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Tempo de expiracao do access token em segundos
+          example: 900
+        refresh_expires_in:
+          type: integer
+          description: Tempo de expiracao do refresh token em segundos
+          example: 604800
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, provider, secretary, customer]
+        timezone:
+          type: string
+        language:
+          type: string
+
+    AuthLoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            tokens:
+              $ref: '#/components/schemas/AuthTokens'
+            user:
+              $ref: '#/components/schemas/AuthUser'
+
+    AuthRefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token obtido no login
+
+    AuthRefreshResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+            token_type:
+              type: string
+              example: Bearer
+            expires_in:
+              type: integer
+              example: 900
+
+    AuthLogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token a ser revogado
+        all:
+          type: boolean
+          description: Revogar todos os tokens do usuario
+          default: false
+
+    AuthErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        code:
+          type: string
+          enum: [MISSING_CREDENTIALS, INVALID_CREDENTIALS, TOKEN_EXPIRED, INVALID_TOKEN, REFRESH_TOKEN_INVALID, MISSING_TOKEN, MISSING_REFRESH_TOKEN]
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        book:
+          type: string
+          format: date-time
+          description: Data/hora do booking
+        start:
+          type: string
+          format: date-time
+          description: Data/hora de inicio
+        end:
+          type: string
+          format: date-time
+          description: Data/hora de fim
+        location:
+          type: string
+          description: Local do atendimento
+        color:
+          type: string
+          description: Cor para exibicao no calendario
+        status:
+          type: string
+          description: Status do agendamento
+        notes:
+          type: string
+          description: Observacoes
+        hash:
+          type: string
+          readOnly: true
+          description: Hash unico para acesso publico
+        serviceId:
+          type: integer
+          description: ID do servico
+        providerId:
+          type: integer
+          description: ID do profissional
+        customerId:
+          type: integer
+          description: ID do cliente
+        googleCalendarId:
+          type: string
+          description: ID do evento no Google Calendar
+        caldavCalendarId:
+          type: string
+          description: ID do evento CalDAV
+      required:
+        - start
+        - end
+        - serviceId
+        - providerId
+        - customerId
+
+    AppointmentInput:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        location:
+          type: string
+        color:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+        serviceId:
+          type: integer
+        providerId:
+          type: integer
+        customerId:
+          type: integer
+      required:
+        - start
+        - end
+        - serviceId
+        - providerId
+        - customerId
+      example:
+        start: "2024-12-26T14:00:00"
+        end: "2024-12-26T15:00:00"
+        serviceId: 1
+        providerId: 2
+        customerId: 3
+        notes: "Primeira consulta"
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        timezone:
+          type: string
+        language:
+          type: string
+        notes:
+          type: string
+        customField1:
+          type: string
+        customField2:
+          type: string
+        customField3:
+          type: string
+        customField4:
+          type: string
+        customField5:
+          type: string
+
+    CustomerInput:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        timezone:
+          type: string
+        language:
+          type: string
+        notes:
+          type: string
+      example:
+        firstName: "Joao"
+        lastName: "Silva"
+        email: "joao@exemplo.com"
+        phone: "+5511999999999"
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        duration:
+          type: integer
+          description: Duracao em minutos
+        price:
+          type: number
+          format: float
+        currency:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        color:
+          type: string
+        availabilitiesType:
+          type: string
+          enum: [flexible, fixed]
+        attendantsNumber:
+          type: integer
+          minimum: 1
+        isPrivate:
+          type: boolean
+        serviceCategoryId:
+          type: integer
+
+    ServiceInput:
+      type: object
+      properties:
+        name:
+          type: string
+        duration:
+          type: integer
+        price:
+          type: number
+        currency:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        color:
+          type: string
+        availabilitiesType:
+          type: string
+        attendantsNumber:
+          type: integer
+        isPrivate:
+          type: boolean
+        serviceCategoryId:
+          type: integer
+      required:
+        - name
+      example:
+        name: "Corte de Cabelo"
+        duration: 30
+        price: 50.00
+        currency: "BRL"
+        description: "Corte masculino ou feminino"
+
+    Provider:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        mobile:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        timezone:
+          type: string
+        language:
+          type: string
+        notes:
+          type: string
+        isPrivate:
+          type: boolean
+        services:
+          type: array
+          items:
+            type: integer
+          description: IDs dos servicos oferecidos
+        settings:
+          $ref: '#/components/schemas/ProviderSettings'
+
+    ProviderSettings:
+      type: object
+      properties:
+        username:
+          type: string
+        notifications:
+          type: boolean
+        calendarView:
+          type: string
+        googleSync:
+          type: boolean
+        googleCalendar:
+          type: string
+        caldavSync:
+          type: boolean
+        caldavUrl:
+          type: string
+        syncFutureDays:
+          type: integer
+        syncPastDays:
+          type: integer
+        workingPlan:
+          type: object
+          description: Plano de trabalho semanal
+        workingPlanExceptions:
+          type: object
+          description: Excecoes ao plano de trabalho
+
+    ProviderInput:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        services:
+          type: array
+          items:
+            type: integer
+        settings:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+            workingPlan:
+              type: object
+      required:
+        - firstName
+        - lastName
+        - email
+        - phone
+
+    Admin:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        mobile:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        timezone:
+          type: string
+        language:
+          type: string
+        notes:
+          type: string
+        settings:
+          type: object
+          properties:
+            username:
+              type: string
+            notifications:
+              type: boolean
+            calendarView:
+              type: string
+
+    Secretary:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        mobile:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        timezone:
+          type: string
+        language:
+          type: string
+        notes:
+          type: string
+        providers:
+          type: array
+          items:
+            type: integer
+          description: IDs dos profissionais gerenciados
+        settings:
+          type: object
+          properties:
+            username:
+              type: string
+            notifications:
+              type: boolean
+
+    ServiceCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        description:
+          type: string
+      required:
+        - name
+
+    Unavailability:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        book:
+          type: string
+          format: date-time
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        location:
+          type: string
+        color:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+        hash:
+          type: string
+          readOnly: true
+        providerId:
+          type: integer
+      required:
+        - start
+        - end
+        - providerId
+
+    BlockedPeriod:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        notes:
+          type: string
+      required:
+        - start
+        - end
+
+    Setting:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+        actions:
+          type: string
+          description: Eventos que disparam o webhook
+        secretToken:
+          type: string
+        isSslVerified:
+          type: boolean
+      required:
+        - name
+        - url
+        - actions
+
+    AvailableHours:
+      type: array
+      items:
+        type: string
+        format: time
+      example:
+        - "09:00"
+        - "09:30"
+        - "10:00"
+        - "10:30"
+
+  responses:
+    NotFound:
+      description: Recurso nao encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Nao autorizado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadRequest:
+      description: Requisicao invalida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+security:
+  - jwtAuth: []
+  - bearerAuth: []
+  - basicAuth: []
+
+paths:
+  # ============================================
+  # AUTHENTICATION
+  # ============================================
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login do usuario
+      description: Autentica o usuario e retorna tokens JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: Login bem sucedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthLoginResponse'
+        '400':
+          description: Credenciais faltando
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '401':
+          description: Credenciais invalidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Renovar access token
+      description: Gera um novo access token usando o refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRefreshRequest'
+      responses:
+        '200':
+          description: Novo access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthRefreshResponse'
+        '401':
+          description: Refresh token invalido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout
+      description: Revoga o refresh token ou todos os tokens do usuario
+      security:
+        - jwtAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLogoutRequest'
+      responses:
+        '200':
+          description: Logout bem sucedido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Successfully logged out
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Dados do usuario autenticado
+      description: Retorna informacoes do usuario autenticado via JWT
+      security:
+        - jwtAuth: []
+      responses:
+        '200':
+          description: Dados do usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/AuthUser'
+        '401':
+          description: Token invalido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+
+  # ============================================
+  # APPOINTMENTS
+  # ============================================
+  /appointments:
+    get:
+      tags:
+        - Appointments
+      summary: Listar agendamentos
+      description: Retorna lista paginada de agendamentos
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/SearchParam'
+        - $ref: '#/components/parameters/SortParam'
+        - $ref: '#/components/parameters/FieldsParam'
+        - $ref: '#/components/parameters/WithParam'
+        - $ref: '#/components/parameters/DateParam'
+        - $ref: '#/components/parameters/FromParam'
+        - $ref: '#/components/parameters/TillParam'
+        - name: serviceId
+          in: query
+          schema:
+            type: integer
+        - name: providerId
+          in: query
+          schema:
+            type: integer
+        - name: customerId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de agendamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Appointment'
+              example:
+                - id: 1
+                  start: "2024-12-26T14:00:00"
+                  end: "2024-12-26T15:00:00"
+                  serviceId: 1
+                  providerId: 2
+                  customerId: 3
+                  status: "confirmed"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Appointments
+      summary: Criar agendamento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentInput'
+      responses:
+        '201':
+          description: Agendamento criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /appointments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Appointments
+      summary: Obter agendamento
+      parameters:
+        - $ref: '#/components/parameters/FieldsParam'
+        - $ref: '#/components/parameters/WithParam'
+      responses:
+        '200':
+          description: Dados do agendamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Appointments
+      summary: Atualizar agendamento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentInput'
+      responses:
+        '200':
+          description: Agendamento atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Appointments
+      summary: Excluir agendamento
+      responses:
+        '204':
+          description: Agendamento excluido
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # CUSTOMERS
+  # ============================================
+  /customers:
+    get:
+      tags:
+        - Customers
+      summary: Listar clientes
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/SearchParam'
+        - $ref: '#/components/parameters/SortParam'
+        - $ref: '#/components/parameters/FieldsParam'
+      responses:
+        '200':
+          description: Lista de clientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Customer'
+              example:
+                - id: 1
+                  firstName: "Joao"
+                  lastName: "Silva"
+                  email: "joao@exemplo.com"
+                  phone: "+5511999999999"
+
+    post:
+      tags:
+        - Customers
+      summary: Criar cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '201':
+          description: Cliente criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+
+  /customers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Customers
+      summary: Obter cliente
+      responses:
+        '200':
+          description: Dados do cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Customers
+      summary: Atualizar cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '200':
+          description: Cliente atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+
+    delete:
+      tags:
+        - Customers
+      summary: Excluir cliente
+      responses:
+        '204':
+          description: Cliente excluido
+
+  # ============================================
+  # SERVICES
+  # ============================================
+  /services:
+    get:
+      tags:
+        - Services
+      summary: Listar servicos
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/SearchParam'
+        - $ref: '#/components/parameters/SortParam'
+        - $ref: '#/components/parameters/FieldsParam'
+      responses:
+        '200':
+          description: Lista de servicos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Service'
+              example:
+                - id: 1
+                  name: "Corte de Cabelo"
+                  duration: 30
+                  price: 50.00
+                  currency: "BRL"
+
+    post:
+      tags:
+        - Services
+      summary: Criar servico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+      responses:
+        '201':
+          description: Servico criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+  /services/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Services
+      summary: Obter servico
+      responses:
+        '200':
+          description: Dados do servico
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Services
+      summary: Atualizar servico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+      responses:
+        '200':
+          description: Servico atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+    delete:
+      tags:
+        - Services
+      summary: Excluir servico
+      responses:
+        '204':
+          description: Servico excluido
+
+  # ============================================
+  # PROVIDERS
+  # ============================================
+  /providers:
+    get:
+      tags:
+        - Providers
+      summary: Listar profissionais
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/SearchParam'
+        - $ref: '#/components/parameters/SortParam'
+        - $ref: '#/components/parameters/FieldsParam'
+        - $ref: '#/components/parameters/WithParam'
+      responses:
+        '200':
+          description: Lista de profissionais
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Provider'
+
+    post:
+      tags:
+        - Providers
+      summary: Criar profissional
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderInput'
+      responses:
+        '201':
+          description: Profissional criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
+
+  /providers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Providers
+      summary: Obter profissional
+      responses:
+        '200':
+          description: Dados do profissional
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Providers
+      summary: Atualizar profissional
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderInput'
+      responses:
+        '200':
+          description: Profissional atualizado
+
+    delete:
+      tags:
+        - Providers
+      summary: Excluir profissional
+      responses:
+        '204':
+          description: Profissional excluido
+
+  # ============================================
+  # ADMINS
+  # ============================================
+  /admins:
+    get:
+      tags:
+        - Admins
+      summary: Listar administradores
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: Lista de administradores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Admin'
+
+    post:
+      tags:
+        - Admins
+      summary: Criar administrador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                settings:
+                  type: object
+                  properties:
+                    username:
+                      type: string
+                    password:
+                      type: string
+      responses:
+        '201':
+          description: Administrador criado
+
+  /admins/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Admins
+      summary: Obter administrador
+      responses:
+        '200':
+          description: Dados do administrador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admin'
+
+    put:
+      tags:
+        - Admins
+      summary: Atualizar administrador
+      responses:
+        '200':
+          description: Administrador atualizado
+
+    delete:
+      tags:
+        - Admins
+      summary: Excluir administrador
+      responses:
+        '204':
+          description: Administrador excluido
+
+  # ============================================
+  # SECRETARIES
+  # ============================================
+  /secretaries:
+    get:
+      tags:
+        - Secretaries
+      summary: Listar secretarias
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: Lista de secretarias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Secretary'
+
+    post:
+      tags:
+        - Secretaries
+      summary: Criar secretaria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                providers:
+                  type: array
+                  items:
+                    type: integer
+                settings:
+                  type: object
+      responses:
+        '201':
+          description: Secretaria criada
+
+  /secretaries/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Secretaries
+      summary: Obter secretaria
+      responses:
+        '200':
+          description: Dados da secretaria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secretary'
+
+    put:
+      tags:
+        - Secretaries
+      summary: Atualizar secretaria
+      responses:
+        '200':
+          description: Secretaria atualizada
+
+    delete:
+      tags:
+        - Secretaries
+      summary: Excluir secretaria
+      responses:
+        '204':
+          description: Secretaria excluida
+
+  # ============================================
+  # SERVICE CATEGORIES
+  # ============================================
+  /service_categories:
+    get:
+      tags:
+        - Service Categories
+      summary: Listar categorias
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceCategory'
+
+    post:
+      tags:
+        - Service Categories
+      summary: Criar categoria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceCategory'
+      responses:
+        '201':
+          description: Categoria criada
+
+  /service_categories/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Service Categories
+      summary: Obter categoria
+      responses:
+        '200':
+          description: Dados da categoria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceCategory'
+
+    put:
+      tags:
+        - Service Categories
+      summary: Atualizar categoria
+      responses:
+        '200':
+          description: Categoria atualizada
+
+    delete:
+      tags:
+        - Service Categories
+      summary: Excluir categoria
+      responses:
+        '204':
+          description: Categoria excluida
+
+  # ============================================
+  # UNAVAILABILITIES
+  # ============================================
+  /unavailabilities:
+    get:
+      tags:
+        - Unavailabilities
+      summary: Listar indisponibilidades
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/DateParam'
+        - $ref: '#/components/parameters/FromParam'
+        - $ref: '#/components/parameters/TillParam'
+      responses:
+        '200':
+          description: Lista de indisponibilidades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Unavailability'
+
+    post:
+      tags:
+        - Unavailabilities
+      summary: Criar indisponibilidade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Unavailability'
+      responses:
+        '201':
+          description: Indisponibilidade criada
+
+  /unavailabilities/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Unavailabilities
+      summary: Obter indisponibilidade
+      responses:
+        '200':
+          description: Dados da indisponibilidade
+
+    put:
+      tags:
+        - Unavailabilities
+      summary: Atualizar indisponibilidade
+      responses:
+        '200':
+          description: Indisponibilidade atualizada
+
+    delete:
+      tags:
+        - Unavailabilities
+      summary: Excluir indisponibilidade
+      responses:
+        '204':
+          description: Indisponibilidade excluida
+
+  # ============================================
+  # BLOCKED PERIODS
+  # ============================================
+  /blocked_periods:
+    get:
+      tags:
+        - Blocked Periods
+      summary: Listar periodos bloqueados
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/DateParam'
+        - $ref: '#/components/parameters/FromParam'
+        - $ref: '#/components/parameters/TillParam'
+      responses:
+        '200':
+          description: Lista de periodos bloqueados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BlockedPeriod'
+
+    post:
+      tags:
+        - Blocked Periods
+      summary: Criar periodo bloqueado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockedPeriod'
+      responses:
+        '201':
+          description: Periodo bloqueado criado
+
+  /blocked_periods/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Blocked Periods
+      summary: Obter periodo bloqueado
+      responses:
+        '200':
+          description: Dados do periodo bloqueado
+
+    put:
+      tags:
+        - Blocked Periods
+      summary: Atualizar periodo bloqueado
+      responses:
+        '200':
+          description: Periodo bloqueado atualizado
+
+    delete:
+      tags:
+        - Blocked Periods
+      summary: Excluir periodo bloqueado
+      responses:
+        '204':
+          description: Periodo bloqueado excluido
+
+  # ============================================
+  # SETTINGS
+  # ============================================
+  /settings:
+    get:
+      tags:
+        - Settings
+      summary: Listar configuracoes
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: Lista de configuracoes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Setting'
+
+  /settings/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Nome da configuracao
+    get:
+      tags:
+        - Settings
+      summary: Obter configuracao
+      responses:
+        '200':
+          description: Valor da configuracao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Setting'
+
+    put:
+      tags:
+        - Settings
+      summary: Atualizar configuracao
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: string
+      responses:
+        '200':
+          description: Configuracao atualizada
+
+  # ============================================
+  # AVAILABILITIES
+  # ============================================
+  /availabilities:
+    get:
+      tags:
+        - Availabilities
+      summary: Obter horarios disponiveis
+      description: Retorna lista de horarios disponiveis para agendamento
+      parameters:
+        - name: providerId
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: ID do profissional
+        - name: serviceId
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: ID do servico
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Data para verificar (default = hoje)
+      responses:
+        '200':
+          description: Lista de horarios disponiveis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailableHours'
+        '400':
+          description: Parametros invalidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ============================================
+  # WEBHOOKS
+  # ============================================
+  /webhooks:
+    get:
+      tags:
+        - Webhooks
+      summary: Listar webhooks
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LengthParam'
+      responses:
+        '200':
+          description: Lista de webhooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Webhook'
+
+    post:
+      tags:
+        - Webhooks
+      summary: Criar webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Webhook'
+      responses:
+        '201':
+          description: Webhook criado
+
+  /webhooks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Webhooks
+      summary: Obter webhook
+      responses:
+        '200':
+          description: Dados do webhook
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+
+    put:
+      tags:
+        - Webhooks
+      summary: Atualizar webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Webhook'
+      responses:
+        '200':
+          description: Webhook atualizado
+
+    delete:
+      tags:
+        - Webhooks
+      summary: Excluir webhook
+      responses:
+        '204':
+          description: Webhook excluido

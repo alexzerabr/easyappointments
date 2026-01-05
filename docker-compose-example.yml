@@ -1,0 +1,203 @@
+# EasyAppointments Production Docker Compose
+# Version: 3.0
+# 
+# This file should be renamed to docker-compose.yml for production use.
+# The deploy-production.sh script handles this conversion automatically.
+#
+# IMPORTANT: 
+# - Uses COMPOSE_PROJECT_NAME=easyappointments_prod for isolation
+# - Volume names prefixed with ea_ (e.g., ea_mysql_data)
+# - Container names: easyappointments-*
+# - This isolates production from development environment
+
+services:
+  php-fpm:
+    image: ghcr.io/alexzerabr/easyappointments:latest
+    container_name: easyappointments-php-fpm
+    working_dir: /var/www/html
+    volumes:
+      # Application assets from image (nocopy prevents overwriting)
+      - type: volume
+        source: ea_assets
+        target: /var/www/html
+        volume:
+          nocopy: true
+      # Storage for uploads, sessions, cache
+      - ea_storage:/var/www/html/storage
+      # Config file (read-only for security)
+      - ./config.php:/var/www/html/config.php:ro
+      # PHP configuration
+      - ./docker/php-fpm/php-ini-production.ini:/usr/local/etc/php/conf.d/99-overrides.ini
+      - ./docker/php-fpm/zz-override.conf:/usr/local/etc/php-fpm.d/zz-override.conf:ro
+      - ./docker/php-fpm/php-fpm.conf:/usr/local/etc/php-fpm.conf:ro
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - FORCE_UPDATE=${FORCE_UPDATE:-false}
+      - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
+      - DB_HOST=mysql
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-easyappointments}
+      - DB_USERNAME=${DB_USERNAME:-easyapp_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: easyappointments-nginx
+    working_dir: /var/www/html
+    volumes:
+      # Application assets (read-only)
+      - type: volume
+        source: ea_assets
+        target: /var/www/html
+        read_only: true
+        volume:
+          nocopy: true
+      # Nginx configuration
+      - ./docker/nginx/nginx-production.conf:/etc/nginx/conf.d/default.conf
+      # Logs
+      - /srv/easyappointments/logs/nginx:/var/log/nginx
+    ports:
+      - '${HTTP_PORT:-80}:80'
+      - '${HTTPS_PORT:-443}:443'
+    depends_on:
+      - php-fpm
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  mysql:
+    image: mysql:8.0
+    container_name: easyappointments-mysql
+    volumes:
+      # Persistent database storage
+      - ea_mysql_data:/var/lib/mysql
+      # MySQL configuration
+      - ./docker/mysql-config/production.cnf:/etc/mysql/conf.d/production.cnf
+    ports:
+      - '${MYSQL_PORT:-3306}:3306'
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE:-easyappointments}
+      - MYSQL_USER=${DB_USERNAME:-easyapp_user}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u${DB_USERNAME:-easyapp_user}", "-p${DB_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  whatsapp-worker:
+    image: ghcr.io/alexzerabr/easyappointments:latest
+    container_name: easyappointments-whatsapp-worker
+    working_dir: /var/www/html
+    volumes:
+      # Application assets
+      - type: volume
+        source: ea_assets
+        target: /var/www/html
+        volume:
+          nocopy: true
+      # Storage
+      - ea_storage:/var/www/html/storage
+      # Config file (read-only)
+      - ./config.php:/var/www/html/config.php:ro
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - FORCE_UPDATE=${FORCE_UPDATE:-false}
+      - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
+      - DB_HOST=mysql
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-easyappointments}
+      - DB_USERNAME=${DB_USERNAME:-easyapp_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - WPPCONNECT_TIMEOUT=${WPPCONNECT_TIMEOUT:-30}
+      - WPPCONNECT_CONNECT_TIMEOUT=${WPPCONNECT_CONNECT_TIMEOUT:-10}
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      php-fpm:
+        condition: service_started
+    command: ["php", "scripts/whatsapp_worker.php"]
+    networks:
+      - app-network
+
+  logrotate:
+    image: alpine:3.18
+    container_name: easyappointments-logrotate
+    working_dir: /var/www/html
+    volumes:
+      - ea_storage:/var/www/html/storage
+      - ./docker/logrotate:/var/www/html/docker/logrotate
+    restart: unless-stopped
+    depends_on:
+      - whatsapp-worker
+    command: 
+      - /bin/sh
+      - -lc
+      - |
+        apk add --no-cache logrotate >/dev/null 2>&1 || true
+        while true; do
+          logrotate -s /var/tmp/logrotate.status /var/www/html/docker/logrotate/whatsapp_worker.conf 2>&1 | sed -e 's/^/[logrotate] /'
+          sleep 86400
+        done
+    networks:
+      - app-network
+
+  backup:
+    image: alpine:3.18
+    container_name: easyappointments-backup
+    volumes:
+      - ea_mysql_data:/var/lib/mysql:ro
+      - /srv/easyappointments/backups:/backups
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE:-easyappointments}
+    restart: "no"
+    networks:
+      - app-network
+    command:
+      - /bin/sh
+      - -c
+      - echo 'Backup service ready. Use deploy-production.sh backup command.'
+
+volumes:
+  # Named volumes with ea_ prefix for production isolation
+  ea_mysql_data:
+    driver: local
+    name: ea_mysql_data
+  ea_assets:
+    driver: local
+    name: ea_assets
+  ea_storage:
+    driver: local
+    name: ea_storage
+
+networks:
+  app-network:
+    driver: bridge
+

@@ -1,0 +1,50 @@
+# Easy!Appointments WebSocket Server Dockerfile
+#
+# Builds a container for the Ratchet WebSocket server.
+#
+# Usage:
+#   docker build -f docker/Dockerfile.websocket -t easyappointments-websocket .
+#   docker run -p 8080:8080 -e JWT_SECRET=your_secret easyappointments-websocket
+
+FROM php:8.1-cli-alpine
+
+# Install dependencies
+RUN apk add --no-cache \
+    git \
+    zip \
+    unzip \
+    libzip-dev \
+    && docker-php-ext-install zip pcntl sockets
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /app
+
+# Copy WebSocket server files
+COPY websocket/composer.json websocket/composer.lock* ./
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Copy server source code
+COPY websocket/server.php ./
+COPY websocket/src/ ./src/
+
+# Create non-root user for security
+RUN addgroup -g 1000 websocket && \
+    adduser -u 1000 -G websocket -s /bin/sh -D websocket && \
+    chown -R websocket:websocket /app
+
+USER websocket
+
+# Expose WebSocket port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD php -r "if (@fsockopen('127.0.0.1', 8081)) exit(0); exit(1);"
+
+# Start the WebSocket server
+CMD ["php", "server.php"]
