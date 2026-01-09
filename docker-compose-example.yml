@@ -185,6 +185,28 @@ services:
       - -c
       - echo 'Backup service ready. Use deploy-production.sh backup command.'
 
+  websocket:
+    image: ghcr.io/alexzerabr/easyappointments-websocket:latest
+    container_name: easyappointments-websocket
+    ports:
+      - '${WEBSOCKET_PORT:-8080}:8080'
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - WEBSOCKET_PORT=8080
+      - WEBSOCKET_HOST=0.0.0.0
+    depends_on:
+      php-fpm:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "php -r \"if (@fsockopen('127.0.0.1', 8081)) exit(0); exit(1);\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   # Named volumes with ea_ prefix for production isolation
   ea_mysql_data:

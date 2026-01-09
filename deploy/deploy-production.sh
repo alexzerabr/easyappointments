@@ -177,6 +177,7 @@ generate_secrets() {
     MYSQL_PASSWORD=$(generate_password 24)
     WA_TOKEN_ENC_KEY=$(openssl rand -hex 32)
     BACKUP_ENCRYPTION_KEY=$(openssl rand -hex 32)
+    JWT_SECRET=$(openssl rand -hex 32)
 
     log_ok "Credentials generated securely"
 }
@@ -240,6 +241,7 @@ ensure_env() {
     sed -i "s/CHANGE_THIS_GENERATE_NEW_KEY_WITH_OPENSSL/${WA_TOKEN_ENC_KEY}/g" "$ENV_FILE"
     sed -i "s/CHANGE_THIS_GENERATE_WITH_OPENSSL_RAND_HEX_32/${WA_TOKEN_ENC_KEY}/g" "$ENV_FILE"
     sed -i "s/CHANGE_THIS_BACKUP_KEY/${BACKUP_ENCRYPTION_KEY}/g" "$ENV_FILE"
+    sed -i "s/CHANGE_THIS_JWT_SECRET_FOR_WEBSOCKET/${JWT_SECRET}/g" "$ENV_FILE"
     
     # Add production-specific settings if not present
     if ! grep -q "COMPOSE_PROJECT_NAME" "$ENV_FILE"; then
@@ -262,6 +264,7 @@ ensure_env() {
     echo "MySQL Root Password:      ${MYSQL_ROOT_PASSWORD}"
     echo "WhatsApp Encryption Key:  ${WA_TOKEN_ENC_KEY}"
     echo "Backup Encryption Key:    ${BACKUP_ENCRYPTION_KEY}"
+    echo "JWT Secret (WebSocket):   ${JWT_SECRET}"
     echo "========================================================"
     echo ""
     
