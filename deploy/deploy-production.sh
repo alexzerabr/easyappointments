@@ -1008,9 +1008,9 @@ compose_update() {
     log_info ""
     log_info "  PRODUCTION UPDATE"
     log_info ""
-    
+
     cd "$PROJECT_ROOT"
-    
+
     # Pull latest code from repository
     log_info "Pulling latest code from repository..."
     if git pull --rebase 2>&1 | grep -q "Already up to date"; then
@@ -1020,9 +1020,67 @@ compose_update() {
     else
         log_warn "Git pull had issues, continuing anyway..."
     fi
-    
+
     echo ""
-    
+
+    # Sync docker-compose.yml with docker-compose-example.yml
+    log_info "Checking for docker-compose.yml updates..."
+    if [[ -f "docker-compose-example.yml" ]]; then
+        # Check if there are new services in the example that are not in production
+        local example_services=$(grep -E "^  [a-z].*:$" docker-compose-example.yml | sed 's/://g' | tr -d ' ' | sort)
+        local prod_services=$(grep -E "^  [a-z].*:$" "$COMPOSE_FILE" 2>/dev/null | sed 's/://g' | tr -d ' ' | sort)
+
+        local new_services=""
+        for svc in $example_services; do
+            if ! echo "$prod_services" | grep -q "^${svc}$"; then
+                new_services="$new_services $svc"
+            fi
+        done
+
+        if [[ -n "$new_services" ]]; then
+            log_warn "New services detected in docker-compose-example.yml:$new_services"
+            log_info "Updating docker-compose.yml with new services..."
+            cp "$COMPOSE_FILE" "${COMPOSE_FILE}.backup.$(date +%Y%m%d%H%M%S)"
+            cp "docker-compose-example.yml" "$COMPOSE_FILE"
+            log_ok "docker-compose.yml updated (backup created)"
+        else
+            log_ok "docker-compose.yml is up to date"
+        fi
+    fi
+
+    # Check for new required environment variables
+    log_info "Checking for new environment variables..."
+    local env_updated=false
+
+    # Check JWT_SECRET
+    if ! grep -q "^JWT_SECRET=" "$ENV_FILE" 2>/dev/null; then
+        log_warn "JWT_SECRET not found in ${ENV_FILE}, generating..."
+        local new_jwt_secret=$(openssl rand -hex 32)
+        echo "" >> "$ENV_FILE"
+        echo "# JWT Secret for WebSocket authentication (auto-generated)" >> "$ENV_FILE"
+        echo "JWT_SECRET=${new_jwt_secret}" >> "$ENV_FILE"
+        env_updated=true
+        log_ok "JWT_SECRET added to ${ENV_FILE}"
+    fi
+
+    # Check WEBSOCKET_PORT
+    if ! grep -q "^WEBSOCKET_PORT=" "$ENV_FILE" 2>/dev/null; then
+        log_info "Adding WEBSOCKET_PORT to ${ENV_FILE}..."
+        echo "WEBSOCKET_PORT=8080" >> "$ENV_FILE"
+        env_updated=true
+        log_ok "WEBSOCKET_PORT added to ${ENV_FILE}"
+    fi
+
+    if [[ "$env_updated" == "true" ]]; then
+        # Reload environment
+        set -a
+        source "$ENV_FILE"
+        set +a
+        log_ok "Environment variables reloaded"
+    fi
+
+    echo ""
+
     # Backup before update
     log_info "Creating backup before update..."
     compose_backup

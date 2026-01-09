@@ -8,7 +8,9 @@ set -euo pipefail
 REGISTRY="ghcr.io"
 NAMESPACE="alexzerabr"
 IMAGE_NAME="easyappointments"
+WEBSOCKET_IMAGE_NAME="easyappointments-websocket"
 DOCKERFILE="docker/php-fpm/Dockerfile"
+WEBSOCKET_DOCKERFILE="docker/Dockerfile.websocket"
 TARGET="production"
 
 # Colors
@@ -185,7 +187,38 @@ if [[ $BUILD_EXIT_CODE -ne 0 ]]; then
     exit $BUILD_EXIT_CODE
 fi
 
-echo -e "${GREEN}✅ Build multi-platform concluído!${NC}" | tee -a "$LOG_FILE"
+echo -e "${GREEN}✅ Build easyappointments concluído!${NC}" | tee -a "$LOG_FILE"
+
+# =============================================================================
+# BUILD WEBSOCKET IMAGE
+# =============================================================================
+
+echo ""
+echo "🔌 Iniciando build da imagem WebSocket..."
+echo ""
+
+if [[ -f "$WEBSOCKET_DOCKERFILE" ]]; then
+    time docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        --file "$WEBSOCKET_DOCKERFILE" \
+        --build-arg BUILD_DATE="$BUILD_DATE" \
+        --build-arg BUILD_VERSION="$BUILD_VERSION" \
+        --build-arg GIT_COMMIT="$GIT_COMMIT" \
+        --tag "$REGISTRY/$NAMESPACE/$WEBSOCKET_IMAGE_NAME:latest" \
+        --tag "$REGISTRY/$NAMESPACE/$WEBSOCKET_IMAGE_NAME:arm64-latest" \
+        --progress=plain \
+        --push \
+        . 2>&1 | tee -a "$LOG_FILE"
+
+    if [[ $? -eq 0 ]]; then
+        echo -e "${GREEN}✅ Build websocket concluído!${NC}" | tee -a "$LOG_FILE"
+    else
+        echo -e "${YELLOW}⚠️  Build websocket falhou, mas continuando...${NC}" | tee -a "$LOG_FILE"
+    fi
+else
+    echo -e "${YELLOW}⚠️  Dockerfile.websocket não encontrado, pulando...${NC}"
+fi
+
 echo "📝 Log completo salvo em: $LOG_FILE"
 
 # =============================================================================
@@ -197,18 +230,19 @@ echo "🔍 Validando imagens geradas..."
 
 # Verifica se as imagens foram criadas no registry
 IMAGE_TAGS=(
-    "latest"
-    "arm64-latest"
-    "latest-arm64"
+    "$IMAGE_NAME:latest"
+    "$IMAGE_NAME:arm64-latest"
+    "$WEBSOCKET_IMAGE_NAME:latest"
+    "$WEBSOCKET_IMAGE_NAME:arm64-latest"
 )
 
 VALIDATION_FAILED=false
 
 for tag in "${IMAGE_TAGS[@]}"; do
-    echo -n "   Verificando $REGISTRY/$NAMESPACE/$IMAGE_NAME:$tag ... "
-    
+    echo -n "   Verificando $REGISTRY/$NAMESPACE/$tag ... "
+
     # Tenta fazer inspect da imagem (funciona para imagens no registry)
-    if docker buildx imagetools inspect "$REGISTRY/$NAMESPACE/$IMAGE_NAME:$tag" >/dev/null 2>&1; then
+    if docker buildx imagetools inspect "$REGISTRY/$NAMESPACE/$tag" >/dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗ (não encontrada)${NC}"
@@ -234,6 +268,8 @@ echo "🏷️  Tags criadas:"
 echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest (multi-arch)"
 echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:arm64-latest (arm64)"
 echo "   - $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest-arm64 (arm64)"
+echo "   - $REGISTRY/$NAMESPACE/$WEBSOCKET_IMAGE_NAME:latest (multi-arch)"
+echo "   - $REGISTRY/$NAMESPACE/$WEBSOCKET_IMAGE_NAME:arm64-latest (arm64)"
 echo ""
 echo "🧪 Próximos passos:"
 echo ""
