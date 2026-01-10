@@ -1,38 +1,23 @@
-# EasyAppointments Production Docker Compose
-# Version: 3.0
-# 
-# This file should be renamed to docker-compose.yml for production use.
-# The deploy-production.sh script handles this conversion automatically.
-#
-# IMPORTANT: 
-# - Uses COMPOSE_PROJECT_NAME=easyappointments_prod for isolation
-# - Volume names prefixed with ea_ (e.g., ea_mysql_data)
-# - Container names: easyappointments-*
-# - This isolates production from development environment
-
 services:
   php-fpm:
     image: ghcr.io/alexzerabr/easyappointments:latest
     container_name: easyappointments-php-fpm
     working_dir: /var/www/html
     volumes:
-      # Application assets from image (nocopy prevents overwriting)
       - type: volume
         source: ea_assets
         target: /var/www/html
         volume:
           nocopy: true
-      # Storage for uploads, sessions, cache
       - ea_storage:/var/www/html/storage
-      # Config file (read-only for security)
       - ./config.php:/var/www/html/config.php:ro
-      # PHP configuration
       - ./docker/php-fpm/php-ini-production.ini:/usr/local/etc/php/conf.d/99-overrides.ini
       - ./docker/php-fpm/zz-override.conf:/usr/local/etc/php-fpm.d/zz-override.conf:ro
       - ./docker/php-fpm/php-fpm.conf:/usr/local/etc/php-fpm.conf:ro
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
+      - TZ=${TZ:-America/Sao_Paulo}
       - FORCE_UPDATE=${FORCE_UPDATE:-false}
       - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
       - DB_HOST=mysql
@@ -58,17 +43,16 @@ services:
     image: nginx:1.25-alpine
     container_name: easyappointments-nginx
     working_dir: /var/www/html
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
     volumes:
-      # Application assets (read-only)
       - type: volume
         source: ea_assets
         target: /var/www/html
         read_only: true
         volume:
           nocopy: true
-      # Nginx configuration
       - ./docker/nginx/nginx-production.conf:/etc/nginx/conf.d/default.conf
-      # Logs
       - /srv/easyappointments/logs/nginx:/var/log/nginx
     ports:
       - '${HTTP_PORT:-80}:80'
@@ -87,18 +71,17 @@ services:
   mysql:
     image: mysql:8.0
     container_name: easyappointments-mysql
-    volumes:
-      # Persistent database storage
-      - ea_mysql_data:/var/lib/mysql
-      # MySQL configuration
-      - ./docker/mysql-config/production.cnf:/etc/mysql/conf.d/production.cnf
-    ports:
-      - '${MYSQL_PORT:-3306}:3306'
     environment:
+      - TZ=${TZ:-America/Sao_Paulo}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=${DB_DATABASE:-easyappointments}
       - MYSQL_USER=${DB_USERNAME:-easyapp_user}
       - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ea_mysql_data:/var/lib/mysql
+      - ./docker/mysql-config/production.cnf:/etc/mysql/conf.d/production.cnf
+    ports:
+      - '${MYSQL_PORT:-3306}:3306'
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u${DB_USERNAME:-easyapp_user}", "-p${DB_PASSWORD}"]
       interval: 30s
@@ -114,19 +97,17 @@ services:
     container_name: easyappointments-whatsapp-worker
     working_dir: /var/www/html
     volumes:
-      # Application assets
       - type: volume
         source: ea_assets
         target: /var/www/html
         volume:
           nocopy: true
-      # Storage
       - ea_storage:/var/www/html/storage
-      # Config file (read-only)
       - ./config.php:/var/www/html/config.php:ro
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
+      - TZ=${TZ:-America/Sao_Paulo}
       - FORCE_UPDATE=${FORCE_UPDATE:-false}
       - WA_TOKEN_ENC_KEY=${WA_TOKEN_ENC_KEY}
       - DB_HOST=mysql
@@ -150,50 +131,43 @@ services:
     image: alpine:3.18
     container_name: easyappointments-logrotate
     working_dir: /var/www/html
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
     volumes:
       - ea_storage:/var/www/html/storage
       - ./docker/logrotate:/var/www/html/docker/logrotate
     restart: unless-stopped
     depends_on:
       - whatsapp-worker
-    command: 
-      - /bin/sh
-      - -lc
-      - |
-        apk add --no-cache logrotate >/dev/null 2>&1 || true
-        while true; do
-          logrotate -s /var/tmp/logrotate.status /var/www/html/docker/logrotate/whatsapp_worker.conf 2>&1 | sed -e 's/^/[logrotate] /'
-          sleep 86400
-        done
+    command: ["/bin/sh", "-lc", "apk add --no-cache logrotate >/dev/null 2>&1 || true; while true; do logrotate -s /var/tmp/logrotate.status /var/www/html/docker/logrotate/whatsapp_worker.conf 2>&1; sleep 86400; done"]
     networks:
       - app-network
 
   backup:
     image: alpine:3.18
     container_name: easyappointments-backup
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE:-easyappointments}
     volumes:
       - ea_mysql_data:/var/lib/mysql:ro
       - /srv/easyappointments/backups:/backups
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - DB_DATABASE=${DB_DATABASE:-easyappointments}
     restart: "no"
     networks:
       - app-network
-    command:
-      - /bin/sh
-      - -c
-      - echo 'Backup service ready. Use deploy-production.sh backup command.'
+    command: ["echo", "Backup service ready. Use deploy-production.sh backup command."]
 
   websocket:
     image: ghcr.io/alexzerabr/easyappointments-websocket:latest
     container_name: easyappointments-websocket
-    ports:
-      - '${WEBSOCKET_PORT:-8080}:8080'
     environment:
+      - TZ=${TZ:-America/Sao_Paulo}
       - JWT_SECRET=${JWT_SECRET}
       - WEBSOCKET_PORT=8080
       - WEBSOCKET_HOST=0.0.0.0
+    ports:
+      - '${WEBSOCKET_PORT:-8080}:8080'
     depends_on:
       php-fpm:
         condition: service_started
@@ -208,7 +182,6 @@ services:
       start_period: 10s
 
 volumes:
-  # Named volumes with ea_ prefix for production isolation
   ea_mysql_data:
     driver: local
     name: ea_mysql_data
@@ -222,4 +195,3 @@ volumes:
 networks:
   app-network:
     driver: bridge
-

@@ -85,30 +85,6 @@ services:
     networks:
       - easyappointments-dev-net
 
-  easyappointments-dev-mailpit:
-    container_name: easyappointments-dev-mailpit
-    image: 'axllent/mailpit:v1.10'
-    ports:
-      - '${MAILPIT_WEB_PORT:-8025}:8025'
-      - '${MAILPIT_SMTP_PORT:-1025}:1025'
-    environment:
-      - TZ=${TZ:-America/Sao_Paulo}
-      - MP_MAX_MESSAGES=5000
-      - MP_DATABASE=/data/mailpit.db
-      - MP_SMTP_AUTH_ACCEPT_ANY=1
-      - MP_SMTP_AUTH_ALLOW_INSECURE=1
-    volumes:
-      - easyappointments-dev-mailpit-data:/data
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8025/api/v1/info"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-    networks:
-      - easyappointments-dev-net
-
   easyappointments-dev-whatsapp-worker:
     container_name: easyappointments-dev-whatsapp-worker
     build:
@@ -164,12 +140,12 @@ services:
       dockerfile: docker/Dockerfile.websocket
     working_dir: /app
     environment:
-      - WEBSOCKET_PORT=8080
+      - WEBSOCKET_PORT=8081
       - WEBSOCKET_HOST=0.0.0.0
       - JWT_SECRET=${JWT_SECRET:-}
       - TZ=${TZ:-America/Sao_Paulo}
     ports:
-      - '${WEBSOCKET_PORT:-8080}:8080'
+      - '${WEBSOCKET_PORT:-8081}:8081'
     healthcheck:
       test: ["CMD-SHELL", "php -r \"if (@fsockopen('127.0.0.1', 8081)) exit(0); exit(1);\" || exit 0"]
       interval: 30s
@@ -182,12 +158,6 @@ services:
         condition: service_healthy
     networks:
       - easyappointments-dev-net
-
-volumes:
-  easyappointments-dev-mysql-data:
-    driver: local
-  easyappointments-dev-mailpit-data:
-    driver: local
 
 networks:
   easyappointments-dev-net:
